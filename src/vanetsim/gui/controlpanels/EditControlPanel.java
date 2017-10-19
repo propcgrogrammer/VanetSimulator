@@ -451,6 +451,10 @@ public final class EditControlPanel extends JPanel implements ActionListener {
         Renderer.getInstance().ReRender(false, false);
     }
 
+    /**
+     * 地圖載入前由 VanetSimStart 呼叫（state = false)
+     * @param state
+     */
     public void setEditMode(boolean state){
         if(state) enableEdit_.setSelected(true);
         else disableEdit_.setSelected(true);
