@@ -15,8 +15,8 @@ public class VanetSimStarter {
 
     public static void main(String[] args) {
 
-        Debug.whereru("VanetSimStarter", true);
-        Debug.callFunctionInfo("VanetSimStarter", "main()", true);
+        Debug.whereru("VanetSimStarter", Debug.ISLOGGED);
+        Debug.callFunctionInfo("VanetSimStarter", "main()", Debug.ISLOGGED);
 
         SwingUtilities.invokeLater(new VanetSimStart());
 

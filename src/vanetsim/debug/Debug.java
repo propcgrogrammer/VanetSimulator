@@ -10,6 +10,13 @@ import java.util.TimeZone;
 
 public class Debug {
 
+
+    /**
+     * /////////////////////////////////////
+     * //      instance variable
+     * /////////////////////////////////////
+     */
+
     /**
      * 取得Debug物件實體
      */
@@ -30,8 +37,19 @@ public class Debug {
      */
     public final static boolean ISLOGGED = false;
 
+    /**
+     * if IS_GET_DETAILED_INFO = true  該筆紀錄顯示於console log 反之
+     */
+    public final static boolean IS_GET_DETAILED_INFO = false;
+
 //	private SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd hh:mm:ss");
 
+
+    /**
+     * /////////////////////////////////////
+     * //      method
+     * /////////////////////////////////////
+     */
 
     public static Debug getInstance(){ return INSTANCE; }
 
@@ -54,10 +72,7 @@ public class Debug {
             try {
 
                 if(FILENAME.equals("") || FILENAME == "")
-                {
-
                     FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
-                }
 
                 fw = new FileWriter(FILENAME,true);
                 fw.write(".\r\n");
@@ -101,10 +116,6 @@ public class Debug {
             if(i == p-1) System.out.println("> " + info.substring((i*SECTION),(i*SECTION)+q));
             else System.out.println("> " + info.substring((i*SECTION), ((i+1)*SECTION)-1));
 
-//			sb.append("+");
-//			if(i == p-1)   sb.append(info.substring((i*SECTION),(i*SECTION)+q));
-//			else   sb.append(info.substring((i*SECTION), ((i+1)*SECTION)-1));
-//			sb.append("\n");
         }
 
         System.out.println("+++++++++++++++++++++++++++++++++++++++++");
@@ -116,10 +127,8 @@ public class Debug {
             try {
 
                 if(FILENAME.equals("") || FILENAME == "")
-                {
-
                     FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
-                }
+
 
                 fw = new FileWriter(FILENAME,true);
                 fw.write(".\r\n");
@@ -166,10 +175,8 @@ public class Debug {
             try {
 
                 if(FILENAME.equals("") || FILENAME == "")
-                {
-
                     FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
-                }
+
 
                 fw = new FileWriter(FILENAME,true);
                 fw.write(".\r\n");
@@ -214,10 +221,8 @@ public class Debug {
             try {
 
                 if(FILENAME.equals("") || FILENAME == "")
-                {
-
                     FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
-                }
+
 
                 fw = new FileWriter(FILENAME,true);
                 fw.write(".\r\n");
@@ -258,10 +263,8 @@ public class Debug {
             try {
 
                 if(FILENAME.equals("") || FILENAME == "")
-                {
-
                     FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
-                }
+
 
 
                 FileWriter fw;
@@ -301,10 +304,8 @@ public class Debug {
         try {
 
             if(FILENAME.equals("") || FILENAME == "")
-            {
-                Date d = new Date(1);
                 FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
-            }
+
 
             fw = new FileWriter(FILENAME,true);
             System.out.println(".");
