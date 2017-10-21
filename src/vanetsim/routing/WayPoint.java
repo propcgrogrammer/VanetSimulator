@@ -10,22 +10,23 @@ import vanetsim.map.Street;
 /**
  * A waypoint used for routing.
  */
-public final class WayPoint{
+public class WayPoint{
 
     /** The x coordinate. */
-    private final int x_;
+    private  int x_;
 
     /** The y coordinate. */
-    private final int y_;
+    private  int y_;
 
     /** The time to wait BEFORE movement to the next waypoint starts. */
     private int waitTime_;
 
     /** The street on which this waypoint is located. */
-    private final Street street_;
+    private  Street street_;
 
     /** The position on the street measured from the StartNode in cm. */
-    private final double positionOnStreet_;
+    private  double positionOnStreet_;
+
 
     /**
      * Instantiates a new waypoint.
@@ -37,22 +38,7 @@ public final class WayPoint{
      * @throws ParseException if the coordinates supplied couldn't be matched to a street within 100m distance.
      */
     public WayPoint(int x, int y, int waitTime) throws ParseException{
-
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "WayPoint(int x, int y, int waitTime)", true);
-
-        // Calculate point on street
-        int[] nearestpoint = new int[2];
-        street_ = MapHelper.findNearestStreet(x,y, 10000, new double[1], nearestpoint);	// search in 100m radius for the starting street
-        if(street_ != null){
-            x_ = nearestpoint[0];
-            y_ = nearestpoint[1];
-            // position on street is measured from startNode to nearestpoint
-            long tmp1 = street_.getStartNode().getX() - x_;
-            long tmp2 = street_.getStartNode().getY() - y_;
-            positionOnStreet_ = Math.sqrt(tmp1 * tmp1 + tmp2 * tmp2); 	// Pythagorean theorem: a^2 + b^2 = c^2
-            waitTime_ = waitTime;
-        } else throw new ParseException(Messages.getString("WayPoint.snappingFailed"),0); //$NON-NLS-1$
+        /** 待新增 */
     }
 
     /**

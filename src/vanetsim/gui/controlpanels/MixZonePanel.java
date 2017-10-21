@@ -199,17 +199,7 @@ public class MixZonePanel extends JPanel implements ActionListener{
      * @param y	the y coordinate (in map scale)
      */
     public void receiveMouseEvent(int x, int y){
-        Node tmpNode = MapHelper.findNearestNode(x, y, 2000, new long[1]);
-        if(tmpNode != null){
-            if(addMixZone_.isSelected()){
-                Map.getInstance().addMixZone(tmpNode, ((Number)mixRadius_.getValue()).intValue() * 100);
-                Renderer.getInstance().ReRender(true, false);
-            }
-            else if(deleteMixZone_.isSelected()){
-                Map.getInstance().deleteMixZone(tmpNode);
-                Renderer.getInstance().ReRender(true, false);
-            }
-        }
+        /** 待新增 */
     }
 
     /**
@@ -223,7 +213,7 @@ public class MixZonePanel extends JPanel implements ActionListener{
         //delete all mix zones
         if("clearMixZones".equals(command)){
             if(JOptionPane.showConfirmDialog(null, Messages.getString("MixZonePanel.msgBoxClearAll"), "", JOptionPane.YES_NO_OPTION) == 0){
-                Map.getInstance().clearMixZones();
+                /** 待新增 */
                 Renderer.getInstance().ReRender(true, false);
             }
         }

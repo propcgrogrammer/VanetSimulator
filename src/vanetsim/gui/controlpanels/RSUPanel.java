@@ -143,14 +143,7 @@ public class RSUPanel extends JPanel implements ActionListener{
      * @param y	the y coordinate (in map scale)
      */
     public void receiveMouseEvent(int x, int y){
-        if(addRSU_.isSelected()){
-            Map.getInstance().addRSU(new RSU(x,y,(((Number)rsuRadius_.getValue()).intValue())*100,false));
-            Renderer.getInstance().ReRender(true, false);
-        }
-        else if(deleteRSU_.isSelected()){
-            Map.getInstance().delRSU(x,y);
-            Renderer.getInstance().ReRender(true, false);
-        }
+        /** 待新增 */
     }
 
     /**
@@ -160,27 +153,6 @@ public class RSUPanel extends JPanel implements ActionListener{
      * @param e	an <code>ActionEvent</code>
      */
     public void actionPerformed(ActionEvent e) {
-        String command = e.getActionCommand();
-        //delete all RSUs
-        if("clearRSUs".equals(command)){
-            if(JOptionPane.showConfirmDialog(null, Messages.getString("RSUPanel.msgBoxClearAll"), "", JOptionPane.YES_NO_OPTION) == 0){
-                Map.getInstance().clearRSUs();
-                Renderer.getInstance().ReRender(true, false);
-            }
-        }
-        //enable RSU add mode
-        else if("addRSU".equals(command)){
-            rsuRadius_.setVisible(true);
-            rsuLabel_.setVisible(true);
-            addNote_.setVisible(true);
-            deleteNote_.setVisible(false);
-        }
-        //enable RSU delete mode
-        else if("deleteRSU".equals(command)){
-            rsuRadius_.setVisible(false);
-            rsuLabel_.setVisible(false);
-            addNote_.setVisible(false);
-            deleteNote_.setVisible(true);
-        }
+        /** 待新增 */
     }
 }

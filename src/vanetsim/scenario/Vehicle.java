@@ -185,7 +185,7 @@ public class Vehicle extends LaneObject{
     public ArrayDeque<WayPoint> originalDestinations_;
 
     /** The <code>WayPoint</code> where this vehicles started. */
-    private final WayPoint startingWayPoint_;
+    private WayPoint startingWayPoint_ ;   /** 待修改 */
 
     /** The vehicle length in cm. */
     private int vehicleLength_;
@@ -206,7 +206,7 @@ public class Vehicle extends LaneObject{
     private boolean emergencyVehicle_;
 
     /** The maximum braking distance. */
-    private final int maxBrakingDistance_;
+    private int maxBrakingDistance_;
 
     /** A class storing messages of different states: execute, forward and old ones. Could also be stored inside the
      * vehicle class but it's a lot more clearly arranged like that. */
@@ -225,7 +225,7 @@ public class Vehicle extends LaneObject{
     private boolean wiFiEnabled_;
 
     /** A random number generator for each vehicle. Primarily used for ID generation but can be used for other tasks, too. */
-    private final Random ownRandom_;
+    private Random ownRandom_;
 
     /** An ID used in communication (beacons). This might change (=> mixing zone)!It cannot be guaranteed
      * that this is really an unique ID as it's generated randomly! */
@@ -372,6 +372,52 @@ public class Vehicle extends LaneObject{
      * //  method
      * ///////////////////////////////////
      */
+
+
+    /**
+     * Instantiates a new vehicle. You will get an exception if the destinations don't contain at least two <b>valid</b> elements.<br>
+     * Elements are considered as invalid if
+     * <ul>
+     * <li>no route can be found between them and the first destination</li>
+     * <li>the destination is on the same street as the first destination</li>
+     * </ul>
+     *
+     * @param destinations		an <code>ArrayDeque</code> with at least 2 elements (start and target) indicating where to move.
+     * @param vehicleLength		the vehicle length
+     * @param maxSpeed			the maximum speed of this vehicle in cm/s
+     * @param maxCommDist		the maximum distance in cm this vehicle can communicate
+     * @param wiFiEnabled		<code>true</code> if this vehicle has a communication device (WiFi), else <code>false</code>
+     * @param emergencyVehicle	<code>true</code> vehicle is an emergency vehicle
+     * @param brakingRate		the braking rate in cm/s^2
+     * @param accelerationRate	the acceleration rate in cm/s^2
+     * @param color				the color of the vehicle, if empty the default (color.black) is used
+     * @throws ParseException an Exception indicating that you did not supply a valid destination list.
+     */
+    public Vehicle(ArrayDeque<WayPoint> destinations, int vehicleLength, int maxSpeed, int maxCommDist, boolean wiFiEnabled, boolean emergencyVehicle, int brakingRate, int accelerationRate, int timeDistance, int politeness, Color color) throws ParseException {
+        if(destinations != null && destinations.size()>1) {
+            originalDestinations_ = destinations;
+            destinations_ = originalDestinations_.clone();
+            ID_ = RANDOM.nextLong();
+            steadyID_ = steadyIDCounter++;
+            vehicleLength_ = vehicleLength;
+            maxSpeed_ = maxSpeed;
+            emergencyVehicle_ = emergencyVehicle;
+            color_ = color;
+            brakingRate_ = brakingRate;
+            accelerationRate_ = accelerationRate;
+            timeDistance_ = timeDistance;
+            politeness_ = politeness;
+            maxBrakingDistance_ = maxSpeed_ + maxSpeed_ * maxSpeed_ / (2 * brakingRate_);    // see http://de.wikipedia.org/wiki/Bremsweg
+            startingWayPoint_ = destinations_.pollFirst();        // take the first element and remove it from the destinations!
+            wiFiEnabled_ = wiFiEnabled;
+            ownRandom_ = new Random(RANDOM.nextLong());
+
+            /** 待增加 */
+        }
+
+            /** 待增加 */
+    }
+
     /**
      * ///////// getter & setter (start) ///////////
      */

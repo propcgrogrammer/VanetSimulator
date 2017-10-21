@@ -29,6 +29,17 @@ public class ReportingControlPanel extends JPanel implements ActionListener, Ite
      * //  method
      * ///////////////////////////////////
      */
+
+
+    /**
+     * This function should be called after each simulation step to determine if an update of statistics/beacon information is necessary
+     *
+     * @param timePerStep	the time of one simulation step in milliseconds
+     */
+    public void checkUpdates(int timePerStep){
+        /** 待新增 */
+    }
+
     /**
      * /////////////  事件觸發方法(start) //////////
      */

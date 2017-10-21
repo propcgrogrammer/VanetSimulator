@@ -5,6 +5,7 @@ import vanetsim.debug.Debug;
 import vanetsim.gui.DrawingArea;
 import vanetsim.gui.Renderer;
 import vanetsim.gui.controlpanels.MainControlPanel;
+import vanetsim.gui.helpers.ProgressOverlay;
 import vanetsim.localization.Messages;
 import vanetsim.simulation.SimulationMaster;
 
@@ -31,6 +32,10 @@ public class VanetSimStart implements Runnable{
 
     /** The controlpanel on the right side. 右側控制面板 */
     private static MainControlPanel controlPanel_;
+
+
+    /** A reference to the progress bar. */
+    private static ProgressOverlay progressBar_;
 
 
     /**
@@ -159,6 +164,14 @@ public class VanetSimStart implements Runnable{
     }
 
     /**
+     * Sets the display state of the progress bar.
+     *
+     * @param state	<code>true</code> to display the progress bar, <code>false</code> to disable it
+     */
+    public static void setProgressBar(boolean state){
+        progressBar_.setVisible(state);
+    }
+    /**
      * Gets the control panel on the right side.
      *
      * @return the control panel
@@ -184,4 +197,8 @@ public class VanetSimStart implements Runnable{
     public static SimulationMaster getSimulationMaster(){
         return simulationMaster_;
     }
+
+
+
+
 }

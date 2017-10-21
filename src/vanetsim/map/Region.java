@@ -21,22 +21,22 @@ public final class Region {
     private static final Vehicle[] EMPTY_VEHICLE = new Vehicle[0];
 
     /** The position on the x axis (in relation to all other regions => does not correspond to map coordinates!). */
-    private final int x_;
+    private int x_;
 
     /** The position on the y axis (in relation to all other regions => does not correspond to map coordinates!). */
-    private final int y_;
+    private int y_;
 
     /** The coordinate representing the left boundary of this region */
-    private final int leftBoundary_;
+    private int leftBoundary_;
 
     /** The coordinate representing the right boundary of this region */
-    private final int rightBoundary_;
+    private int rightBoundary_;
 
     /** The coordinate representing the upper boundary of this region */
-    private final int upperBoundary_;
+    private int upperBoundary_;
 
     /** The coordinate representing the lower boundary of this region */
-    private final int lowerBoundary_;
+    private int lowerBoundary_;
 
 
     /**
@@ -60,6 +60,24 @@ public final class Region {
     /**
      * /////////// setter & getter (start) ///////////
      */
+
+    /**
+     * Function to get the x axis position of this region.
+     *
+     * @return x axis position
+     */
+    public int getX(){
+        return x_;
+    }
+
+    /**
+     * Function to get the y axis position of this region.
+     *
+     * @return y axis position
+     */
+    public int getY(){
+        return y_;
+    }
 
     /**
      * Creates an array as a copy of the vehicle <code>ArrayList</code> to prevent problems during simulation caused by

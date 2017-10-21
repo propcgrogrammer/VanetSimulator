@@ -56,6 +56,8 @@ public final class DrawingArea extends JComponent implements MouseWheelListener,
     }
 
 
+
+
     @Override
     public void keyTyped(KeyEvent e) {
 

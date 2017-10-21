@@ -60,82 +60,7 @@ public class KnownPenalties{
 	 * @param validUntil	how long this entry will be valid. Measured in millseconds from simulation start
 	 */
 	public synchronized void updatePenalty(Street street, int direction, int penalty, int validUntil){
-		boolean found = false;
-		boolean otherPenaltyValue = false;
-		for(int i = 0; i < streets_.length; ++i){
-			if(streets_[i] == street && directions_[i] == direction){	// update existing value
-				found = true;
-				if(penalties_[i] != penalty) otherPenaltyValue = true;
-				penalties_[i] = penalty;
-				validUntil_[i] = validUntil;
-				break;
-			}
-		}
-
-		if(!found){			
-			if(size < streets_.length){	// arrays are still large enough
-				streets_[size] = street;
-				directions_[size] = direction;
-				penalties_[size] = penalty;
-				validUntil_[size] = validUntil;
-			} else {
-				// create larger arrays and insert element
-				Street[] newArray = new Street[size + 2];
-				System.arraycopy (streets_,0,newArray,0,size);
-				newArray[size] = street;
-				streets_ = newArray;
-
-				int[] newArray2 = new int[size + 2];
-				System.arraycopy (directions_,0,newArray2,0,size);
-				newArray2[size] = direction;
-				directions_ = newArray2;
-
-				newArray2 = new int[size + 2];
-				System.arraycopy (penalties_,0,newArray2,0,size);
-				newArray2[size] = penalty;
-				penalties_ = newArray2;
-
-				newArray2 = new int[size + 2];
-				System.arraycopy (validUntil_,0,newArray2,0,size);
-				newArray2[size] = validUntil;
-				validUntil_ = newArray2;
-				
-				boolean[] newArray3 = new boolean[size + 2];
-				System.arraycopy (newArray3,0,newArray3,0,size);
-				newArray3[size] = false;
-				routeUpdateNecessary_ = newArray3;
-			}
-			++size;
-		}
-
-		// a really new information has arrived!
-		if(!found || otherPenaltyValue){			
-			// search if this new information affects the route of the vehicle as route calculation is quite costly
-			Street[] routeStreets = vehicle_.getRouteStreets();
-			boolean[] routeDirections = vehicle_.getRouteDirections();
-			int i = vehicle_.getRoutePosition() + 1;	// increased by 1 because a penalty on the street on which the vehicle currently is isn't very helful
-			found = false;
-			for(;i < routeStreets.length; ++i){
-				if(routeStreets[i] == street){
-					if(routeDirections[i]){		// from startNode to endNode
-						if(direction < 1){
-							found = true;
-							break;
-						}
-					} else {		// from endNode to startNode
-						if(direction > -1){
-							found = true;
-							break;
-						}
-					}
-				}				
-			}
-			// the route is affected => recalculate it!
-			if(found){
-				routeUpdateNecessary_[size-1] = true;
-				vehicle_.calculateRoute(true, true);
-			}	
-		}
+		/** 待增加 */
 	}
 
 	/**
@@ -143,29 +68,7 @@ public class KnownPenalties{
 	 * sure that no other thread uses any function on this object at the same time!
 	 */
 	public void checkValidUntil(){
-		int timeout = Renderer.getInstance().getTimePassed();
-		boolean updateRoute = false;
-		
-		for(int i = size - 1; i > -1; --i){	// going backwards because it's easier for deletion!
-			if(validUntil_[i] < timeout){
-				// check if route might be affected if we remove this
-				if(routeUpdateNecessary_[i]) updateRoute = true;
-
-				// Don't really remove. Just make the size smaller and copy everything to the front. The data left is some kind of garbage
-				// but that doesn't matter...
-				--size;
-				System.arraycopy(streets_,i+1,streets_,i,size-i);
-				System.arraycopy(directions_,i+1,directions_,i,size-i);
-				System.arraycopy(penalties_,i+1,penalties_,i,size-i);
-				System.arraycopy(validUntil_,i+1,validUntil_,i,size-i);
-				System.arraycopy(routeUpdateNecessary_,i+1,routeUpdateNecessary_,i,size-i);
-			}
-		}
-		// if one was removed, a recalculation is necessary
-		if(updateRoute){
-			vehicle_.calculateRoute(true, true);
-		}
-
+		/** 待增加 */
 	}
 	/**
 	 * Gets all streets with known penalties.

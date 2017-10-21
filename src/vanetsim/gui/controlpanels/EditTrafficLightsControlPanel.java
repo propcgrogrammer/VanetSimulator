@@ -308,145 +308,7 @@ public class EditTrafficLightsControlPanel extends JPanel implements ActionListe
     }
 
     public void actionPerformed(ActionEvent e) {
-        String command = e.getActionCommand();
-        //action when the add RadioButton is selected
-        if("add".equals(command)){
-            setGuiElements("add");
-            redGreenPhaseLength_.setValue(10000);
-            yellowPhaseLength_.setValue(3000);
-            crossingPriorityDifferenceLength_.setValue(5000);
-            Renderer.getInstance().ReRender(true, false);
-        }
-        //action when the edit RadioButton is selected
-        else if("edit".equals(command)){
-            setGuiElements("edit");
-            if(actualJunction_ != null && actualJunction_.getNode().getTrafficLight_() != null){
-                redGreenPhaseLength_.setValue(actualJunction_.getNode().getTrafficLight_().getRedPhaseLength());
-                yellowPhaseLength_.setValue(actualJunction_.getNode().getTrafficLight_().getYellowPhaseLength());
-                crossingPriorityDifferenceLength_.setValue(actualJunction_.getNode().getTrafficLight_().getGreenPhaseLength() - actualJunction_.getNode().getTrafficLight_().getRedPhaseLength());
-            }
-            else {
-                redGreenPhaseLength_.setValue(0);
-                yellowPhaseLength_.setValue(0);
-                crossingPriorityDifferenceLength_.setValue(0);
-            }
-            Renderer.getInstance().ReRender(true, false);
-        }
-        //action when the edit one signal RadioButton is selected
-        else if("editOneSignal".equals(command)){
-            setGuiElements("editOneSignal");
-            refreshTrafficSignals();
-            Renderer.getInstance().ReRender(true, false);
-        }
-        else if("addTrafficLight".equals(command) && addItem_.isSelected()){ //$NON-NLS-1$
-            //check if junction is marked
-
-            if(actualJunction_ != null && Renderer.getInstance().getMarkedJunction_().equals(actualJunction_)){
-                int tmpRedPhaseLength = ((Number)redGreenPhaseLength_.getValue()).intValue();
-                int tmpYellowPhaseLength = ((Number)yellowPhaseLength_.getValue()).intValue();
-                int tmpGreenPhaseLength = ((Number)redGreenPhaseLength_.getValue()).intValue() + ((Number)crossingPriorityDifferenceLength_.getValue()).intValue();
-                if(tmpRedPhaseLength != 0 && tmpYellowPhaseLength != 0 &&  tmpGreenPhaseLength != 0){
-                    //create new TrafficLight object
-                    //Renderer.getInstance().getMarkedJunction_().getNode().setTrafficLight_(new TrafficLight(Renderer.getInstance().getMarkedJunction_()));
-                    actualJunction_.getNode().setTrafficLight_(new TrafficLight(tmpRedPhaseLength, tmpYellowPhaseLength, tmpGreenPhaseLength, actualJunction_));
-                    actualJunction_.getNode().setHasTrafficSignal_(true);
-                    Renderer.getInstance().ReRender(true, false);
-                }
-                else {
-                    JOptionPane.showMessageDialog(null, Messages.getString("EditTrafficLightsControlPanel.msgBoxNOTSavedText"), "Information", JOptionPane.INFORMATION_MESSAGE);
-                }
-            }
-        }
-        else if("addTrafficLight".equals(command) && editItem_.isSelected()){ //$NON-NLS-1$
-            if(actualJunction_ != null && Renderer.getInstance().getMarkedJunction_().equals(actualJunction_) && actualJunction_.getNode().getTrafficLight_() != null){
-                //get reference to the traffic light object
-                TrafficLight tmpTrafficLight = actualJunction_.getNode().getTrafficLight_();
-                int tmpRedPhaseLength = ((Number)redGreenPhaseLength_.getValue()).intValue();
-                int tmpYellowPhaseLength = ((Number)yellowPhaseLength_.getValue()).intValue();
-                int tmpGreenPhaseLength = ((Number)redGreenPhaseLength_.getValue()).intValue() + ((Number)crossingPriorityDifferenceLength_.getValue()).intValue();
-
-                if(tmpRedPhaseLength != 0 && tmpYellowPhaseLength != 0 && tmpGreenPhaseLength != 0){
-                    tmpTrafficLight.setRedPhaseLength(tmpRedPhaseLength);
-                    tmpTrafficLight.setYellowPhaseLength(tmpYellowPhaseLength);
-                    tmpTrafficLight.setGreenPhaseLength(tmpGreenPhaseLength);
-                }
-                else {
-                    JOptionPane.showMessageDialog(null, Messages.getString("EditTrafficLightsControlPanel.msgBoxNOTSavedText"), "Information", JOptionPane.INFORMATION_MESSAGE);
-                }
-                Renderer.getInstance().ReRender(true, false);
-            }
-        }
-        //action when the deleteTrafficLight Button is pressed
-        else if("deleteTrafficLight".equals(command)){ //$NON-NLS-1$
-            if(actualJunction_ != null && Renderer.getInstance().getMarkedJunction_().equals(actualJunction_) && actualJunction_.getNode().getTrafficLight_() != null){
-                actualJunction_.delTrafficLight();
-                Renderer.getInstance().ReRender(true, false);
-            }
-        }
-        //delete all traffic lights
-        else if("clearTrafficLights".equals(command)){ //$NON-NLS-1$
-            if(JOptionPane.showConfirmDialog(null, Messages.getString("EditTrafficLightsControlPanel.msgBoxClearAll"), "", JOptionPane.YES_NO_OPTION) == 0){
-                Map.getInstance().clearTrafficLights();
-                Renderer.getInstance().ReRender(true, false);
-            }
-        }
-        else if ("comboBoxChanged".equals(command)){
-            selectedStreet_ = (Street) chooseTrafficSignal_.getSelectedItem();
-            Renderer.getInstance().setMarkedStreet(selectedStreet_);
-
-            if(actualJunction_.getNode().equals(selectedStreet_.getStartNode())){
-                if(selectedStreet_.getStartNodeTrafficLightState() == -1) colorPreview_.setBackground(Color.gray);
-                else if (selectedStreet_.getStartNodeTrafficLightState() == 0) colorPreview_.setBackground(Color.green);
-                else colorPreview_.setBackground(Color.red);
-            }
-            else{
-                if(selectedStreet_.getEndNodeTrafficLightState() == -1) colorPreview_.setBackground(Color.gray);
-                else if (selectedStreet_.getEndNodeTrafficLightState() == 0) colorPreview_.setBackground(Color.green);
-                else colorPreview_.setBackground(Color.red);
-            }
-
-            Renderer.getInstance().ReRender(true, false);
-        }
-        else if ("switchTrafficLight".equals(command)){
-            selectedStreet_ = (Street) chooseTrafficSignal_.getSelectedItem();
-
-            if(actualJunction_.getNode().equals(selectedStreet_.getStartNode())){
-                if(selectedStreet_.getStartNodeTrafficLightState() == -1) selectedStreet_.setStartNodeTrafficLightState(0);
-                else if (selectedStreet_.getStartNodeTrafficLightState() == 0) selectedStreet_.setStartNodeTrafficLightState(4);
-                else  selectedStreet_.setStartNodeTrafficLightState(-1);
-            }
-            else{
-                if(selectedStreet_.getEndNodeTrafficLightState() == -1)  selectedStreet_.setEndNodeTrafficLightState(0);
-                else if (selectedStreet_.getEndNodeTrafficLightState() == 0) selectedStreet_.setEndNodeTrafficLightState(4);
-                else selectedStreet_.setEndNodeTrafficLightState(-1);
-            }
-
-            if(actualJunction_.getNode().equals(selectedStreet_.getStartNode())){
-                if(selectedStreet_.getStartNodeTrafficLightState() == -1) colorPreview_.setBackground(Color.gray);
-                else if (selectedStreet_.getStartNodeTrafficLightState() == 0) colorPreview_.setBackground(Color.green);
-                else colorPreview_.setBackground(Color.red);
-            }
-            else{
-                if(selectedStreet_.getEndNodeTrafficLightState() == -1) colorPreview_.setBackground(Color.gray);
-                else if (selectedStreet_.getEndNodeTrafficLightState() == 0) colorPreview_.setBackground(Color.green);
-                else colorPreview_.setBackground(Color.red);
-            }
-
-            //save exceptions to object
-
-            Street[] tmpStreet = actualJunction_.getNode().getTrafficLight_().getStreets_();
-
-            for(int i = 0; i < tmpStreet.length; i++){
-                if(tmpStreet[i].getEndNode().equals(actualJunction_.getNode())){
-                    actualJunction_.getNode().getStreetHasException_()[i] = tmpStreet[i].getEndNodeTrafficLightState();
-                }
-                else if(tmpStreet[i].getStartNode().equals(actualJunction_.getNode())){
-                    actualJunction_.getNode().getStreetHasException_()[i] = tmpStreet[i].getStartNodeTrafficLightState();
-                }
-            }
-
-            Renderer.getInstance().ReRender(true, false);
-        }
+        /** 待增加 */
     }
 
     /**
@@ -456,65 +318,14 @@ public class EditTrafficLightsControlPanel extends JPanel implements ActionListe
      * @param y	the y coordinate (in map scale)
      */
     public void receiveMouseEvent(int x, int y){
-        //get selected (nearest) junction and set as marked on renderer
-        actualJunction_ = MapHelper.findNearestNode(x, y, 20000, new long[1]).getJunction();
-        selectedStreet_ = null;
-
-        if(editItem_.isSelected()){
-            if(actualJunction_ != null && actualJunction_.getNode().getTrafficLight_() != null){
-                redGreenPhaseLength_.setValue(actualJunction_.getNode().getTrafficLight_().getRedPhaseLength());
-                yellowPhaseLength_.setValue(actualJunction_.getNode().getTrafficLight_().getYellowPhaseLength());
-                crossingPriorityDifferenceLength_.setValue(actualJunction_.getNode().getTrafficLight_().getGreenPhaseLength() - actualJunction_.getNode().getTrafficLight_().getRedPhaseLength());
-            }
-            else {
-                redGreenPhaseLength_.setValue(0);
-                yellowPhaseLength_.setValue(0);
-                crossingPriorityDifferenceLength_.setValue(0);
-            }
-        }
-        if(editOneSignal_.isSelected()){
-            refreshTrafficSignals();
-        }
-
-        Renderer.getInstance().setMarkedJunction_(actualJunction_);
-        Renderer.getInstance().ReRender(false, false);
+        /** 待增加 */
     }
 
     /**
      * updates the traffic signal combobox
      */
     public void refreshTrafficSignals(){
-        chooseTrafficSignal_.removeActionListener(this);  //important: Remove ActionListener before removing all items from Combobox
-        chooseTrafficSignal_.removeAllItems();
-
-        if(actualJunction_ != null && actualJunction_.getNode().getTrafficLight_() != null){
-            for(Street s : actualJunction_.getNode().getTrafficLight_().getStreets_())chooseTrafficSignal_.addItem(s);
-            chooseTrafficSignal_.setVisible(true);
-            colorPreview_.setVisible(true);
-            switchSignalState_.setVisible(true);
-
-            selectedStreet_ = (Street) chooseTrafficSignal_.getItemAt(0);
-            Renderer.getInstance().setMarkedStreet(selectedStreet_);
-            if(actualJunction_.getNode().equals(selectedStreet_.getStartNode())){
-                if(selectedStreet_.getStartNodeTrafficLightState() == -1) colorPreview_.setBackground(Color.gray);
-                else if (selectedStreet_.getStartNodeTrafficLightState() == 0) colorPreview_.setBackground(Color.green);
-                else colorPreview_.setBackground(Color.red);
-            }
-            else{
-                if(selectedStreet_.getEndNodeTrafficLightState() == -1) colorPreview_.setBackground(Color.gray);
-                else if (selectedStreet_.getEndNodeTrafficLightState() == 0) colorPreview_.setBackground(Color.green);
-                else colorPreview_.setBackground(Color.red);
-            }
-        }
-        else{
-            selectedStreet_ = null;
-            chooseTrafficSignal_.setVisible(false);
-            colorPreview_.setVisible(false);
-            switchSignalState_.setVisible(false);
-        }
-        chooseTrafficSignal_.addActionListener(this);
-
-        Renderer.getInstance().ReRender(true, true);
+        /** 待增加 */
     }
 
     public void mouseClicked(MouseEvent e) {}

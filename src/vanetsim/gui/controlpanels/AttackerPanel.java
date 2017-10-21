@@ -151,64 +151,7 @@ public class AttackerPanel extends JPanel implements ActionListener{
      */
     public void receiveMouseEvent(int x, int y){
 
-        //checks if a vehicle is near the coordinations of the mouse click and sets the Attacker-Vehicle
-        if(selectUnselectAttackerVehicle_.isSelected()){
-            //find vehicles near x and y
-            Renderer.getInstance().setMarkedVehicle(null);
-
-
-            Region[][] Regions = Map.getInstance().getRegions();
-            int Region_max_x = Map.getInstance().getRegionCountX();
-            int Region_max_y = Map.getInstance().getRegionCountY();
-            int i, j;
-            for(i = 0; i < Region_max_x; ++i){
-                for(j = 0; j < Region_max_y; ++j){
-                    Vehicle[] vehiclesArray = Regions[i][j].getVehicleArray();
-                    for(int k = 0; k < vehiclesArray.length; ++k){
-                        Vehicle vehicle = vehiclesArray[k];
-
-                        //selects attacker vehicle near the coordinates (200 cm radius)
-                        if(vehicle.getX() > (x - 200) && vehicle.getX() < (x + 200) && vehicle.getY() > (y - 200) && vehicle.getY() < (y + 200)) {
-                            if(Renderer.getInstance().getAttackedVehicle() != null && Renderer.getInstance().getAttackedVehicle().equals(vehicle)) Renderer.getInstance().setAttackedVehicle(null);
-                            Renderer.getInstance().setAttackerVehicle(vehicle);
-                        }
-                    }
-                }
-            }
-        }
-
-        //checks if a vehicle is near the coordinations of the mouse click and sets the Attacked-Vehicle
-        else if(selectUnselectAttackedVehicle_.isSelected()){
-            //find vehicles near x and y
-            Renderer.getInstance().setMarkedVehicle(null);
-
-
-            Region[][] Regions = Map.getInstance().getRegions();
-            int Region_max_x = Map.getInstance().getRegionCountX();
-            int Region_max_y = Map.getInstance().getRegionCountY();
-            int i, j;
-            for(i = 0; i < Region_max_x; ++i){
-                for(j = 0; j < Region_max_y; ++j){
-                    Vehicle[] vehiclesArray = Regions[i][j].getVehicleArray();
-                    for(int k = 0; k < vehiclesArray.length; ++k){
-                        Vehicle vehicle = vehiclesArray[k];
-
-                        //selects attacked vehicle near the coordinates (200 cm radius)
-                        if(vehicle.getX() > (x - 200) && vehicle.getX() < (x + 200) && vehicle.getY() > (y - 200) && vehicle.getY() < (y + 200)) {
-                            if(Renderer.getInstance().getAttackerVehicle() != null && Renderer.getInstance().getAttackerVehicle().equals(vehicle)) Renderer.getInstance().setAttackerVehicle(null);
-                            Renderer.getInstance().setAttackedVehicle(vehicle);
-                            Vehicle.setAttackedVehicleID_(vehicle.getID());
-                        }
-                    }
-                }
-            }
-        }
-        else{
-            //Checks if a ARSU is near the coordinates delete this ARSU. If not add a new ARSU
-            if(!AttackRSU.deleteARSU(x, y)) new AttackRSU(x, y, ((Number)getArsuRadius_().getValue()).intValue() * 100);
-            Renderer.getInstance().ReRender(true, false);
-        }
-        Renderer.getInstance().ReRender(true, true);
+        /** 待新增 */
     }
 
     /**
