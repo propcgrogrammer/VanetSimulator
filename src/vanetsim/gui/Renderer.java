@@ -296,7 +296,7 @@ public final class Renderer{
                     if(scheduleFullRender_){
                         scheduleFullRender_ = false;
                        // drawArea_.prepareBufferedImages();
-                        /** 補足prepareBufferedImages（） */
+                        /** 補足prepareBufferedImages（）未實作 */
                     }
                     doPaintInitializedBySimulation_ = true;
                     drawArea_.repaint();

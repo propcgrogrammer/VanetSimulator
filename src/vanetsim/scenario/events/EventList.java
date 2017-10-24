@@ -15,7 +15,11 @@ public final class EventList {
 	/** The only instance of this class (singleton). */
 	private static final EventList INSTANCE = new EventList();
 
+	/** A <code>PriorityQueue</code> storing all coming events. */
+	private final PriorityQueue<Event> allEvents_ = new PriorityQueue<Event>(16);
 
+	/** An <code>ArrayList</code> storing the currently active blocking events. */
+	private final ArrayList<StartBlocking> currentBlockings_ = new ArrayList<StartBlocking>(16);
 
 	/**
 	 * Empty, private constructor in order to disable instancing.
@@ -42,6 +46,13 @@ public final class EventList {
 	 */
 	public void processEvents(int time){
 
+	}
 
+	/**
+	 * Removes all events.
+	 */
+	public void clearEvents(){
+		allEvents_.clear();
+		currentBlockings_.clear();
 	}
 }

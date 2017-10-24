@@ -3,8 +3,10 @@ package vanetsim.simulation;
 import vanetsim.ErrorLog;
 import vanetsim.VanetSimStart;
 import vanetsim.debug.Debug;
+import vanetsim.debug.ThreadInfo;
 import vanetsim.gui.Renderer;
 import vanetsim.gui.controlpanels.ReportingControlPanel;
+import vanetsim.gui.helpers.PrivacyLogWriter;
 import vanetsim.gui.helpers.ReRenderManager;
 import vanetsim.localization.Messages;
 import vanetsim.map.Map;
@@ -12,6 +14,7 @@ import vanetsim.map.Region;
 import vanetsim.scenario.KnownRSUsList;
 import vanetsim.scenario.KnownVehiclesList;
 import vanetsim.scenario.Scenario;
+import vanetsim.scenario.Vehicle;
 import vanetsim.scenario.events.EventList;
 
 import java.util.ArrayList;
@@ -44,6 +47,9 @@ public class SimulationMaster extends Thread {
 
     /** a variable to save the start time */
     private static long startTime = 0;
+
+    /** Flag to log silent period header once */
+    private boolean logSilentPeriodHeader_ = true;
 
 
     /** The time, one step should have in realtime. Decrease to get a faster simulation, increase to get a slower simulation. */
@@ -119,7 +125,8 @@ public class SimulationMaster extends Thread {
         /**  取得regions陣列物件，初次呼叫時為null */
         Region[][] regions = Map.getInstance().getRegions();
 
-        System.out.println("DEBUG : regions =>"+regions);
+        /** 此測試程式碼經驗證regions陣列物件，初次呼叫時為null */
+        //System.out.println("DEBUG : regions =>"+regions);
 
         ArrayList<Region> tmpRegions = new ArrayList<Region>();
 
@@ -149,6 +156,9 @@ public class SimulationMaster extends Thread {
         double target = regionsPerThread;
         threads = 0;	// reset to 0, perhaps we're getting more/less because of rounding so we calculate this later!
 
+        /**
+         * 初次呼叫（當未匯入地圖時），regionCountX 和 regionCountY 其值均為0，故此迴圈均不會執行
+         */
         for(int i = 0; i < regionCountX; ++i){
             for(int j = 0; j < regionCountY; ++j){
 
@@ -198,6 +208,15 @@ public class SimulationMaster extends Thread {
                         tmpWorkers.add(tmpWorker);
                         /** 啟動執行緒 */
                         tmpWorker.start();
+
+                        /**
+                         * ========= 2017/10/23_2242 新增 =========
+                         */
+                        ThreadInfo.getInstance().addThreadＳupervise(tmpWorker);
+                        ThreadInfo.getInstance().start();
+                        /**
+                         * =======================================
+                         */
 
                     } catch (Exception e){
                         ErrorLog.log(Messages.getString("SimulationMaster.errorWorkerThread"), 7, SimulationMaster.class.getName(), "createWorkers", e); //$NON-NLS-1$ //$NON-NLS-2$
@@ -253,6 +272,30 @@ public class SimulationMaster extends Thread {
     public SimulationMaster(){
         Debug.whereru("SimulationMaster", Debug.ISLOGGED);
         Debug.debugInfo(this.getClass().getName(), "SimulationMaster()", Debug.ISLOGGED);
+    }
+
+    /**
+     * Method to let this thread start delegating work to subthreads. Work in the main function is resumed, the
+     * subthreads (workers) will wake up again and the Renderer is notified to get active again.
+     * 於 2017/10/23_1220 新增
+     */
+    public synchronized void startThread(){
+
+        Debug.callFunctionInfo(this.getClass().getName(), "startThread()", Debug.ISLOGGED);
+        Debug.ThreadInfo(this, Debug.ISLOGGED);
+
+        // write silent period log header
+        if(Vehicle.isSilentPeriodsOn() && logSilentPeriodHeader_) {
+            logSilentPeriodHeader_ = false;
+            PrivacyLogWriter.log("Silent Period:Duration:" + Vehicle.getTIME_OF_SILENT_PERIODS() + ":Frequency:" + Vehicle.getTIME_BETWEEN_SILENT_PERIODS());
+        }
+
+
+        Debug.detailedInfo("notify renderer to run the simulation", Debug.ISLOGGED);
+        Renderer.getInstance().notifySimulationRunning(true);
+        ErrorLog.log(Messages.getString("SimulationMaster.simulationStarted"), 2, SimulationMaster.class.getName(), "startThread", null); //$NON-NLS-1$ //$NON-NLS-2$
+        Renderer.getInstance().ReRender(true, false);
+        running_ = true;
     }
 
     /**
@@ -322,12 +365,16 @@ public class SimulationMaster extends Thread {
         long timeOld = 0;
         long timeNew = 0;
         long timeDistance = 0;
+        /** 預設 consoleStart 為 false */
         boolean consoleStart = Renderer.getInstance().isConsoleStart();
 
 
         while(true){
+
+
             try{
                 if(running_ || doOneStep_){
+
 
                     Debug.detailedInfo("running on state running or doOneStep", Debug.ISLOGGED);
 
@@ -339,6 +386,9 @@ public class SimulationMaster extends Thread {
                     while(workers_ == null){  /** 當執行緒還未被產生時，產生執行緒 */
 
                         Debug.detailedInfo("when workers_ is null", Debug.ISLOGGED);
+
+                        System.out.println("Map =>"+Map.getInstance().getReadyState());
+                        System.out.println("Scenario =>"+Scenario.getInstance().getReadyState());
 
                         if (Map.getInstance().getReadyState() == true && Scenario.getInstance().getReadyState() == true){	// wait until map is ready
 

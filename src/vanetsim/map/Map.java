@@ -4,7 +4,11 @@ import vanetsim.ErrorLog;
 import vanetsim.VanetSimStart;
 import vanetsim.debug.Debug;
 import vanetsim.gui.Renderer;
+import vanetsim.gui.helpers.MouseClickManager;
 import vanetsim.localization.Messages;
+import vanetsim.scenario.RSU;
+import vanetsim.scenario.Scenario;
+import vanetsim.scenario.Vehicle;
 
 import javax.xml.stream.XMLInputFactory;
 import javax.xml.stream.XMLOutputFactory;
@@ -88,6 +92,108 @@ public class Map {
         return INSTANCE;
     }
 
+
+    /**
+     * Initializes a new map.
+     * 於2017/10/23_2331新增
+     * @param width			the width
+     * @param height		the height
+     * @param regionWidth	the width of a region
+     * @param regionHeight	the height of a region
+     */
+    public void initNewMap(int width, int height, int regionWidth, int regionHeight){
+        int i, j;
+        if(ready_ == true) {
+            ready_ = false;
+            //cleanup!
+            if (!Renderer.getInstance().isConsoleStart()) {
+
+                /** 暫時封閉此行，該initNewScenario（）於 2017/10/24_0448 更新完成 */
+                Scenario.getInstance().initNewScenario();	//stops the simulation thread so we don't need to do it here
+                /** 初始化完成後更新其狀態為準備等待執行 */
+                Scenario.getInstance().setReadyState(true);
+            }
+
+            /**
+             * 分別設定原始地圖的寬（width) 和 高（height)
+             * 分別設定每一個區域的寬（regionWidth) 和 高（regionHeight)
+             * */
+            width_ = width;
+            height_ = height;
+            regionWidth_ = regionWidth;
+            regionHeight_ = regionHeight;
+
+            Renderer.getInstance().setMarkedStreet(null);
+            Renderer.getInstance().setMarkedVehicle(null);
+            Renderer.getInstance().setAttackerVehicle(null);
+            Renderer.getInstance().setAttackedVehicle(null);
+
+            if(!Renderer.getInstance().isConsoleStart()) MouseClickManager.getInstance().cleanMarkings();
+
+            // create the regions on the map
+            /** 計算地圖x向座標分成幾個區域 */
+            regionCountX_ = width_/regionWidth_;
+            if(width_%regionWidth_ > 0) ++regionCountX_;
+            /** 計算地圖y向座標分成幾個區域 */
+            regionCountY_ = height_/regionHeight_;
+            if(height_%regionHeight_ > 0) ++regionCountY_;
+
+            /** 宣告地圖陣列 */
+            regions_ = new Region[regionCountX_][regionCountY_];
+
+            int upperboundary = 0, leftboundary = 0;
+            for(i = 0; i < regionCountX_; ++i){
+                for(j = 0; j < regionCountY_; ++j){
+                    regions_[i][j] = new Region(i,j, leftboundary, leftboundary + regionWidth_-1, upperboundary, upperboundary + regionHeight_-1);
+                    upperboundary += regionHeight_;
+                }
+                leftboundary += regionWidth_;
+                upperboundary = 0;
+            }
+            Vehicle.setRegions(regions_);
+            RSU.setRegions(regions_);
+        }else{
+            ErrorLog.log(Messages.getString("Map.mapLocked"), 7, getClass().getName(), "initNewMap", null);
+        }
+    }
+
+    /**
+     * This function needs to be called to signal that the loading process of the map has finished.
+     */
+    public void signalMapLoaded(){
+        // optimize the ArrayLists in the regions in order to free wasted memory
+
+        for(int i = 0; i < regionCountX_; ++i) {
+            for (int j = 0; j < regionCountY_; ++j) {
+
+                /** 注意calculateJunctions（）未實作 */
+                regions_[i][j].calculateJunctions();
+            }
+        }
+        ready_ = true;
+        if(!Renderer.getInstance().isConsoleStart()){
+            Renderer.getInstance().setMiddle(width_/2, height_/2);
+            Renderer.getInstance().setMapZoom(Math.exp(5/100.0)/1000);
+            Renderer.getInstance().ReRender(true, false);
+
+        }
+
+        //start a thread which calculates bridges in background so that loading is faster (it's just eyecandy and not necessary otherwise ;))
+        Runnable job = new Runnable() {
+            public void run(){
+                for(int i = 0; i < regionCountX_; ++i){
+                    for(int j = 0; j < regionCountY_; ++j){
+                        /** 待實作checkStreetsForBridges（）方法 */
+                        //regions_[i][j].checkStreetsForBridges();
+                    }
+                }
+            }
+        };
+        Thread t = new Thread(job);
+        t.setPriority(Thread.MIN_PRIORITY);
+        t.start();
+
+    }
 
     /**
      * ///////////// getter & setter （start) /////////////

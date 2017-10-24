@@ -1,6 +1,13 @@
 package vanetsim.scenario;
 
 
+import vanetsim.VanetSimStart;
+import vanetsim.gui.Renderer;
+import vanetsim.gui.helpers.MouseClickManager;
+import vanetsim.map.Map;
+import vanetsim.map.Region;
+import vanetsim.scenario.events.EventList;
+
 import java.io.File;
 
 /**
@@ -33,6 +40,69 @@ public class Scenario {
      * Empty, private constructor in order to disable instancing.
      */
     private Scenario() {
+    }
+
+
+    /**
+     * Initializes a new (empty) scenario.
+     * 初始化所有Scenario包含 Vehicle / RSU / Street / Event
+     * 於 2017/10/24_0425 新增
+     */
+    public void initNewScenario(){
+
+        if(ready_ == true){
+            /** 初始化地圖，lock不讓模擬執行 */
+            ready_ = false;
+            /** 停止SimulationMaster的執行緒 */
+            if(!Renderer.getInstance().isConsoleStart()) VanetSimStart.getSimulationMaster().stopThread();
+            /** 設定SimulateControlPanel的控制面板 */
+            if(!Renderer.getInstance().isConsoleStart()) VanetSimStart.getMainControlPanel().getSimulatePanel().setSimulationStop();
+
+            KnownVehiclesList.setTimePassed(0);
+            KnownRSUsList.setTimePassed(0);
+
+            Renderer.getInstance().setTimePassed(0);
+            Renderer.getInstance().setMarkedVehicle(null);
+            Renderer.getInstance().setShowVehicles(false);
+            Renderer.getInstance().setShowRSUs(false);
+            Renderer.getInstance().setShowMixZones(false);
+            Renderer.getInstance().setAttackedVehicle(null);
+            Renderer.getInstance().setAttackerVehicle(null);
+            Renderer.getInstance().setShowAttackers(false);
+
+
+            Vehicle.setMaximumCommunicationDistance(0);
+            Vehicle.resetGlobalRandomGenerator();
+            Vehicle.setMinTravelTimeForRecycling(60000);	// standard value for recycle time
+            Vehicle.setArsuList(new AttackRSU[0]);
+            Vehicle.setAttackedVehicleID_(0);
+
+
+            if(!Renderer.getInstance().isConsoleStart()) MouseClickManager.getInstance().cleanMarkings();
+            /** Regions 其初始值為 null */
+            Region[][] Regions = Map.getInstance().getRegions();
+            /** Region_max_x 其初始值為 0 */
+            int Region_max_x = Map.getInstance().getRegionCountX();
+            /** Region_max_y 其初始值為 0 */
+            int Region_max_y = Map.getInstance().getRegionCountY();
+
+            /** 若沒有地圖載入，則迴圈不會被執行 */
+            int i, j;
+            for(i = 0; i < Region_max_x; ++i){
+                for(j = 0; j < Region_max_y; ++j){
+                    Regions[i][j].cleanVehicles();
+                }
+            }
+
+            EventList.getInstance().clearEvents();
+
+            /** 注意updateList（）未實作 */
+            if(!Renderer.getInstance().isConsoleStart())VanetSimStart.getMainControlPanel().getEditPanel().getEditEventPanel().updateList();
+
+
+        }
+
+
     }
 
     /**

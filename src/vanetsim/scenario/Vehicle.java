@@ -818,6 +818,12 @@ public class Vehicle extends LaneObject{
         return maxMixZoneRadius_;
     }
 
+    /**
+     * Resets the global random number generator
+     */
+    public static void resetGlobalRandomGenerator(){
+        RANDOM.setSeed(1L);
+    }
 
     /**
      * Set the default radius of the mix zones (in the common settings panel).

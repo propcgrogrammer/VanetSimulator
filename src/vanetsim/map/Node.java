@@ -42,6 +42,14 @@ public class Node {
         ++counter_;
     }
 
+
+    /**
+     * Calculates if this is a junction and the priorities of all possible ways which go over this junction.
+     */
+    public void calculateJunction(){
+        /** 待新增 */
+    }
+
     /**
      * Returns the unique ID of this node.
      *

@@ -1,5 +1,7 @@
 package vanetsim.map;
 
+import vanetsim.debug.Debug;
+import vanetsim.gui.Renderer;
 import vanetsim.scenario.Vehicle;
 
 import java.util.ArrayList;
@@ -20,6 +22,16 @@ public final class Region {
     /** An empty vehicle array to prevent unnecessary object creation on <code>toArray()</code> operation. */
     private static final Vehicle[] EMPTY_VEHICLE = new Vehicle[0];
 
+    /** An array storing all mix nodes. Within a defined distance, no communication is allowed (and beacon-IDs are changed). */
+    private Node[] mixZoneNodes_ = new Node[0];
+
+    /** An array storing all nodes in this region. */
+    private Node[] nodes_ = new Node[0];	// This has a little bit overhead while loading compared to an ArrayList but requires less memory and is faster when iterating
+
+
+    /**
+     * 位子座標變數
+     */
     /** The position on the x axis (in relation to all other regions => does not correspond to map coordinates!). */
     private int x_;
 
@@ -52,11 +64,72 @@ public final class Region {
     private Vehicle[] vehiclesArray_;
 
 
+    /** An array storing all streets in this region. */
+    private Street[] streets_ = new Street[0];		// This has a little bit overhead while loading compared to an ArrayList but requires less memory and is faster when iterating
+
+
     /**
      * ///////////////////////////////////
      * //  method
      * ///////////////////////////////////
      */
+
+    /**
+     * Constructor for a region.
+     *
+     * @param x				the position on the x axis of the new region (該區域的X索引）
+     * @param y				the position on the y axis of the new region (該區域的Y索引）
+     * @param leftBoundary	the coordinate of the left boundary  (該區域的Ｘ起始座標）
+     * @param rightBoundary	the coordinate of the right boundary (該區域的Ｘ終點座標）
+     * @param upperBoundary	the coordinate of the upper boundary (該區域的Ｙ起始座標）
+     * @param lowerBoundary	the coordinate of the lower boundary (該區域的Ｙ終點座標）
+     */
+    public Region(int x, int y, int leftBoundary, int rightBoundary, int upperBoundary, int lowerBoundary){
+
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "Region(int x, int y, int leftBoundary, int rightBoundary, int upperBoundary, int lowerBoundary)", Debug.ISLOGGED);
+
+        vehicles_ = new ArrayList<Vehicle>(1);
+        x_ = x;
+        y_ = y;
+        leftBoundary_ = leftBoundary;
+        rightBoundary_ = rightBoundary;
+        upperBoundary_ = upperBoundary;
+        lowerBoundary_ = lowerBoundary;
+    }
+
+    /**
+     * This function should be called before starting simulation. All nodes calculate if they are junctions and
+     * and what their priority streets are. Furthermore, mixing zones are generated.
+     */
+    public void calculateJunctions(){
+        if(Renderer.getInstance().isAutoAddMixZones()) mixZoneNodes_ = new Node[0];
+
+        for(int i = 0; i < nodes_.length; ++i){
+
+            /** 注意calculateJunction（）未實作 */
+            nodes_[i].calculateJunction();
+
+            /** 待新增 */
+
+        }
+        /** 待實作prepareLogs（）方法 */
+        //prepareLogs(nodes_);
+    }
+
+
+
+    /**
+     * This function should be called before initializing a new scenario to delete all vehicles.
+     */
+    public void cleanVehicles(){
+        vehicles_ = new ArrayList<Vehicle>(1);
+        for(int i = 0; i < streets_.length; ++i){
+            streets_[i].clearLanes();
+        }
+        vehiclesDirty_ = true;
+    }
+
     /**
      * /////////// setter & getter (start) ///////////
      */

@@ -118,8 +118,8 @@ public final class EditControlPanel extends JPanel implements ActionListener {
     public EditControlPanel(){
 
         /** 進行版面配置（使用GridBagConstraints） */
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "EditControlPanel()", true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "EditControlPanel()", Debug.ISLOGGED);
 
         setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -250,6 +250,51 @@ public final class EditControlPanel extends JPanel implements ActionListener {
      */
     public void actionPerformed(ActionEvent e){
         /** 待新增 */
+        /** 2017/10/24_1636 新增 */
+        String command = e.getActionCommand();
+        if ("savemap".equals(command)){ //$NON-NLS-1$
+            VanetSimStart.getMainControlPanel().changeFileChooser(false, true, false);
+            final JFileChooser filechooser = VanetSimStart.getMainControlPanel().getFileChooser();
+            int returnVal = filechooser.showSaveDialog(VanetSimStart.getMainFrame());
+            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                Runnable job = new Runnable() {
+                    public void run() {
+                        File file = filechooser.getSelectedFile();
+                        if(filechooser.getAcceptAllFileFilter() != filechooser.getFileFilter() && !file.getName().toLowerCase().endsWith(".xml")) file = new File(file.getAbsolutePath() + ".xml"); //$NON-NLS-1$ //$NON-NLS-2$
+                        Map.getInstance().save(file, false);
+                    }
+                };
+                new Thread(job).start();
+            }
+        } else if ("savescenario".equals(command)){ //$NON-NLS-1$
+            VanetSimStart.getMainControlPanel().changeFileChooser(false, true, false);
+            final JFileChooser filechooser = VanetSimStart.getMainControlPanel().getFileChooser();
+            int returnVal = filechooser.showSaveDialog(VanetSimStart.getMainFrame());
+            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                Runnable job = new Runnable() {
+                    public void run() {
+                        File file = filechooser.getSelectedFile();
+                        if(filechooser.getAcceptAllFileFilter() != filechooser.getFileFilter() && !file.getName().toLowerCase().endsWith(".xml")) file = new File(file.getAbsolutePath() + ".xml"); //$NON-NLS-1$ //$NON-NLS-2$
+                        Scenario.getInstance().save(file, false);
+                    }
+                };
+                new Thread(job).start();
+            }
+        } else if ("importOSM".equals(command)) { //$NON-NLS-1$
+            VanetSimStart.getMainControlPanel().changeFileChooser(true, true, true);
+            int returnVal = VanetSimStart.getMainControlPanel().getFileChooser().showOpenDialog(VanetSimStart.getMainFrame());
+            if (returnVal == JFileChooser.APPROVE_OPTION){
+                Runnable job = new Runnable() {
+                    public void run() {
+                        OSMLoader.getInstance().loadOSM(VanetSimStart.getMainControlPanel().getFileChooser().getSelectedFile());
+                    }
+                };
+                new Thread(job).start();
+            }
+        }
+
+
+
     }
 
     /**

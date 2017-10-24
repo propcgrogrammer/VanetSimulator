@@ -7,10 +7,12 @@ import vanetsim.gui.Renderer;
 import vanetsim.gui.controlpanels.MainControlPanel;
 import vanetsim.gui.helpers.ProgressOverlay;
 import vanetsim.localization.Messages;
+import vanetsim.map.Map;
 import vanetsim.simulation.SimulationMaster;
 
 import javax.swing.*;
 import java.awt.*;
+import java.net.URL;
 
 /**
  * This is the main class for the VANet-Simulator which starts the GUI and all other components.
@@ -94,12 +96,12 @@ public class VanetSimStart implements Runnable{
          * UI 控制部分
          */
         ///////////////////////////////////////
-//        progressBar_ = new ProgressOverlay();
-//        if(Runtime.getRuntime().maxMemory() < 120000000) ErrorLog.log(Messages.getString("StartGUI.detectedLowMemory"), 6, VanetSimStart.class.getName(), "run", null); //$NON-NLS-1$ //$NON-NLS-2$
-//        URL appicon = ClassLoader.getSystemResource("vanetsim/images/appicon.gif"); //$NON-NLS-1$
-//        if (appicon != null){
-//            mainFrame_.setIconImage(Toolkit.getDefaultToolkit().getImage(appicon));
-//        } else ErrorLog.log(Messages.getString("StartGUI.noAppIcon"), 6, VanetSimStart.class.getName(), "run", null); //$NON-NLS-1$ //$NON-NLS-2$
+        progressBar_ = new ProgressOverlay();
+        if(Runtime.getRuntime().maxMemory() < 120000000) ErrorLog.log(Messages.getString("StartGUI.detectedLowMemory"), 6, VanetSimStart.class.getName(), "run", null); //$NON-NLS-1$ //$NON-NLS-2$
+        URL appicon = ClassLoader.getSystemResource("vanetsim/images/appicon.gif"); //$NON-NLS-1$
+        if (appicon != null){
+            mainFrame_.setIconImage(Toolkit.getDefaultToolkit().getImage(appicon));
+        } else ErrorLog.log(Messages.getString("StartGUI.noAppIcon"), 6, VanetSimStart.class.getName(), "run", null); //$NON-NLS-1$ //$NON-NLS-2$
         ///////////////////////////////////////
 
         /** 設置MainFrame相關的版面配置 */
@@ -119,9 +121,14 @@ public class VanetSimStart implements Runnable{
         Debug.detailedInfo("initiailze JFrame, JAVA Swing finish", Debug.ISLOGGED);
 
         /** 正式進行模擬執行緒 */
-        simulationMaster_ = new SimulationMaster();
-        simulationMaster_.start();
+     //   simulationMaster_ = new SimulationMaster();
+     //   simulationMaster_.start();
 
+        /** 此行為測試程式碼，2017/10/23 尋找startThread()是怎麼被呼叫的，推論有可能在GUI時按鈕觸發  */
+      //  simulationMaster_.startThread();
+
+      //  Map.getInstance().initNewMap(100000, 100000, 10000, 10000);
+      //  Map.getInstance().signalMapLoaded();
 
     }
 
