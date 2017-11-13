@@ -99,6 +99,77 @@ public final class Region {
     }
 
     /**
+     * Function to add a node to this region.
+     *
+     * @param node 		the node to add
+     * @param doCheck 	<code>true</code> if a check should be made if this node already exists; else <code>false</code> to skip the test
+     *
+     * @return the node added (might be different from <code>node</code> if it already existed and <code>check</code> was true)
+     */
+    public Node addNode(Node node, boolean doCheck){
+        if(doCheck){
+            Node curNode, foundNode = null;
+            int x = node.getX();   //cache to save function calls
+            int y = node.getY();
+            for(int i = 0; i < nodes_.length; ++i){
+                curNode = nodes_[i];
+                if(curNode.getX() == x && curNode.getY() == y){
+                    foundNode = curNode;
+                    break;
+                }
+            }
+            if(foundNode != null) return foundNode;
+        }
+        Node[] newArray = new Node[nodes_.length+1];
+        System.arraycopy (nodes_,0,newArray,0,nodes_.length);
+        newArray[nodes_.length] = node;
+        nodes_ = newArray;
+        return node;
+    }
+
+    /**
+     * Function to add a street to this region. This also checks if it is intersecting with other streets in this region
+     * and sets the appropriate flag on the streets!
+     *
+     * @param street the street to add
+     * @param doCheck 	<code>true</code> if a check should be made if this street already exists; else <code>false</code> to skip the test
+     */
+    public void addStreet(Street street, boolean doCheck){
+        boolean foundstreet = false;
+        boolean createBridges = false;
+        if(Map.getInstance().getReadyState() == true) createBridges = true;
+        if(streets_.length > 0 && (doCheck || createBridges)){
+            Street otherStreet;
+            int color1, color2;
+            for(int i = 0; i < streets_.length; ++i){
+                otherStreet = streets_[i];
+                if((street.getStartNode() == otherStreet.getStartNode() || street.getStartNode() == otherStreet.getEndNode()) && (street.getEndNode() == otherStreet.getEndNode() ||  street.getEndNode() == otherStreet.getStartNode())) foundstreet = true;
+                if(createBridges){
+                    color1 = street.getDisplayColor().getRGB();
+                    color2 = otherStreet.getDisplayColor().getRGB();
+                    //check to which street we should add the bridge
+                    /** 注意calculateBridges（）未實作 */
+                    if(color1 != color2){
+                        if(color1 < color2) MapHelper.calculateBridges(otherStreet, street);
+                        else MapHelper.calculateBridges(street, otherStreet);
+                    } else {
+                        if(street.getBridgePaintLines() != null || street.getBridgePaintPolygons() != null) MapHelper.calculateBridges(street, otherStreet);	//add bridge to street which already has a bridge
+                        else if(otherStreet.getBridgePaintLines() != null || otherStreet.getBridgePaintPolygons() != null) MapHelper.calculateBridges(otherStreet, street);
+                        else if(street.getSpeed() > otherStreet.getSpeed()) MapHelper.calculateBridges(otherStreet, street);		//decide on speed
+                        else MapHelper.calculateBridges(street, otherStreet);
+                    }
+                }
+            }
+        }
+        if(!doCheck || !foundstreet){
+            Street[] newArray = new Street[streets_.length+1];
+            System.arraycopy (streets_,0,newArray,0,streets_.length);
+            newArray[streets_.length] = street;
+            streets_ = newArray;
+        }
+    }
+
+    /**
      * This function should be called before starting simulation. All nodes calculate if they are junctions and
      * and what their priority streets are. Furthermore, mixing zones are generated.
      */

@@ -7,11 +7,12 @@ import vanetsim.debug.Debug;
 public class VanetSimStarter {
     /**
      * ®
-     *
+     * GitHub 測試
      * @param args	command line arguments. No argument is given the simulator will start in GUI-Mode.
      * if 3 arguments are given the simulator will start without GUI in console mode. args[0] = map path; args[1] = scenario path args[2] = time until the simulation stops
      * example for console mode: java -jar VanetSimStarter.jar /Users/Max_Mustermann/rgb-1.xml /Users/Max_Mustermann/rgb-1_scen.xml 50000
      */
+
 
     public static void main(String[] args) {
 

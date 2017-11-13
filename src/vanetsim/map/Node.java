@@ -27,6 +27,9 @@ public class Node {
     /** An array containing all streets coming into or going out from this node. */
     private Street[] crossingStreets_ = new Street[0];
 
+    /** The region in which this node is. */
+    private Region region_;
+
     /**
      * Instantiates a new node.
      *
@@ -59,6 +62,14 @@ public class Node {
         return nodeID_;
     }
 
+    /**
+     * Gets the region in which this node is found.
+     *
+     * @return the region
+     */
+    public Region getRegion() {
+        return region_;
+    }
 
     /**
      * Gets the x coordinate.
@@ -103,6 +114,15 @@ public class Node {
      */
     public Street[] getOutgoingStreets() {
         return outgoingStreets_;
+    }
+
+    /**
+     * Sets the region in which this node is found.
+     *
+     * @param region the region
+     */
+    public void setRegion(Region region) {
+        region_ = region;
     }
 
     /**

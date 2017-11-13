@@ -1,0 +1,10 @@
+<component name="libraryTable">
+  <library name="java">
+    <CLASSES />
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/Downloads/vanetsim_quickstart/externaljars/staxmate-src-1.3.0.zip!/src/java" />
+      <root url="jar://$USER_HOME$/Downloads/vanetsim_quickstart/externaljars/staxmate-src-1.3.0.zip!/src/test" />
+    </SOURCES>
+  </library>
+</component>

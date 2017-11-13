@@ -63,6 +63,9 @@ public class Map {
     /** The amount of regions in y direction. */
     private int regionCountY_ = 0;
 
+    /** The region in which this node is. */
+    private Region region_;
+
     /** An array holding all {@link Region}s. */
     private Region[][] regions_ = null;
 
@@ -79,7 +82,7 @@ public class Map {
      * Empty, private constructor in order to disable instancing.
      */
     private Map() {
-        Debug.whereru(this.getClass().getName(), true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
         Debug.callFunctionInfo(this.getClass().getName(), "Map()", Debug.ISLOGGED);
     }
 
@@ -196,8 +199,104 @@ public class Map {
     }
 
     /**
+     * Add a new node to the correct region. A node can only be in one region.
+     *
+     * @param node	the node to add
+     *
+     * @return the added node (might be different if already existing!)
+     */
+    public Node addNode(Node node){
+        int regionX = node.getX()/regionWidth_;	//implicit rounding (=floor)because of integer values!
+        int regionY = node.getY()/regionHeight_;
+
+        // to prevent "array out of bounds" when node is outside of map
+        if (regionX >= regionCountX_) regionX = regionCountX_ - 1;
+        else if(regionX < 0) regionX = 0;
+        if (regionY >= regionCountY_) regionY = regionCountY_ - 1;
+        else if (regionY < 0) regionY = 0;
+
+        node.setRegion(regions_[regionX][regionY]);
+        return regions_[regionX][regionY].addNode(node, true);
+    }
+
+    /**
+     * Add a new street to the correct region(s). Note that a street can be in multiple regions and so we must determine
+     * all here! This makes rendering and calculations a lot easier later!
+     *
+     * @param street	the street to add
+     */
+    public void addStreet(Street street){
+        int startRegionX = street.getStartNode().getRegion().getX();
+        int startRegionY = street.getStartNode().getRegion().getY();
+        int endRegionX = street.getEndNode().getRegion().getX();
+        int endRegionY = street.getEndNode().getRegion().getY();
+        int i;
+
+        // find the regions in which this street belongs!
+        if(startRegionX == endRegionX){
+            if(startRegionY == endRegionY) regions_[startRegionX][startRegionY].addStreet(street, true);		// just in one region
+            else{	// above or beneath
+                if(startRegionY < endRegionY){
+                    for (i = startRegionY; i <= endRegionY; ++i) regions_[startRegionX][i].addStreet(street, true);
+                } else {
+                    for (i = endRegionY; i <= startRegionY; ++i) regions_[startRegionX][i].addStreet(street, true);
+                }
+            }
+        } else if(startRegionY == endRegionY){
+            if(startRegionX < endRegionX){	// left or right
+                for (i = startRegionX; i <= endRegionX; ++i) regions_[i][startRegionY].addStreet(street, true);
+            } else {
+                for (i = endRegionX; i <= startRegionX; ++i) regions_[i][startRegionY].addStreet(street, true);
+            }
+        } else{		// seems to be non-trivial crossing regions, try some kind of bruteforce now!
+            // we now need the real coordinates and not just the regions!
+            int start_x = street.getStartNode().getX();
+            int start_y = street.getStartNode().getY();
+            int end_x = street.getEndNode().getX();
+            int end_y = street.getEndNode().getY();
+
+            regions_[startRegionX][startRegionY].addStreet(street, true);
+            regions_[endRegionX][endRegionY].addStreet(street, true);
+
+            // calculate line parameters: y = ax + b
+            double a = ((double)start_y - end_y) / ((double)start_x - end_x);	// (start_x - end_x) can't be zero because then (start_region_x == end_region_x) above would have been true!
+            double b = start_y - a * start_x;
+
+            double x, y;
+            long tmp;
+
+            int max_x = Math.max(endRegionX, startRegionX);		//cache so that the math-function isn't called too often
+            int max_y = Math.max(startRegionY, endRegionY);
+            for(i = Math.min(startRegionX, endRegionX); i < max_x; ++i){	// check all vertical grid lines of the regions to be considered
+                y = a * (i * regionWidth_) + b;	// left side of this grid
+                tmp = Math.round(y) / regionHeight_;
+                if(tmp > -1 && tmp < regionCountY_) regions_[i][(int)tmp].addStreet(street, true);
+                y = a * ((i * regionWidth_) + regionWidth_ - 1) + b;	// right side of this grid
+                tmp = Math.round(y) / regionHeight_;
+                if(tmp > -1 && tmp < regionCountY_) regions_[i][(int)tmp].addStreet(street, true);
+            }
+            for(i = Math.min(startRegionY, endRegionY); i < max_y; ++i){	// check all horizontal grid lines of the regions to be considered
+                x = ((i * regionHeight_) - b)/ a;		// upper side of this grid
+                tmp = Math.round(x) / regionWidth_;
+                if(tmp > -1 && tmp < regionCountX_) regions_[(int)tmp][i].addStreet(street, true);
+                x = (((i * regionHeight_) + regionHeight_ - 1) - b)/ a;	// lower side of this grid
+                tmp = Math.round(x) / regionWidth_;
+                if(tmp > -1 && tmp < regionCountX_) regions_[(int)tmp][i].addStreet(street, true);
+            }
+        }
+    }
+
+    /**
      * ///////////// getter & setter （start) /////////////
      */
+    /**
+     * Sets the region in which this node is found.
+     *
+     * @param region the region
+     */
+    public void setRegion(Region region) {
+        region_ = region;
+    }
     /**
      * Gets the map width.
      *

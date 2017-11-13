@@ -37,6 +37,7 @@ public class MainControlPanel extends JPanel implements ChangeListener {
 
     /**
      * Panel類變數
+     * 主視窗右側頁籤的部分
      */
 
     /** The simulate control panel. */
@@ -107,13 +108,37 @@ public class MainControlPanel extends JPanel implements ChangeListener {
 
         /** set some layout settings and a fixed size */
         setLayout(new GridBagLayout());
+        /** 設定simulatePanel返回視窗最適合的大小 */
         Dimension size = simulatePanel_.getPreferredSize();
-        /** 調整視窗大小 */
+        /** 調整視窗大小(若視窗高度小於800，則設定為800，否則則設定原始大小) */
         size.setSize(size.width + 210, size.height < 800? 800: size.height);
 
         setMinimumSize(new Dimension(size.width,400));
         editPanel_.setMinimumSize(size);
 
+        /** 於2017/11/14 新增以下程式碼 */
+        GridBagConstraints c = new GridBagConstraints();
+        c.fill = GridBagConstraints.BOTH;
+        c.anchor = GridBagConstraints.PAGE_START;
+        c.weightx = 1.0;
+        c.weighty = 1.0;
+        c.gridx = 0;
+        c.gridy = 0;
+        c.gridheight = 1;
+        /** 放入 SimulatePanel 頁籤 */
+        tabbedPane_.addTab(Messages.getString("MainControlPanel.simulateTab"), simulatePanel_); //$NON-NLS-1$
+        /** 放入 EditPanel 頁籤 */
+        tabbedPane_.addTab(Messages.getString("MainControlPanel.editTab"), editPanel_); //$NON-NLS-1$
+        /** 放入 ReportingPanel 頁籤 */
+        tabbedPane_.addTab(Messages.getString("MainControlPanel.reporting"), reportingPanel_); //$NON-NLS-1$
+        /** 此處移除關於我的視窗 */
+        //   tabbedPane_.addTab(Messages.getString("MainControlPanel.about"), aboutPanel_); //$NON-NLS-1$
+        tabbedPane_.setMinimumSize(new Dimension(size.width, 400));
+        tabbedPane_.addChangeListener(this);
+        JScrollPane scrollPane = new JScrollPane(tabbedPane_);
+        add(scrollPane, c);
+
+        /** 於2017/11/14 新增以上程式碼 */
 
     }
 

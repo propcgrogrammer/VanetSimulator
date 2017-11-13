@@ -104,7 +104,7 @@ public class VanetSimStart implements Runnable{
         } else ErrorLog.log(Messages.getString("StartGUI.noAppIcon"), 6, VanetSimStart.class.getName(), "run", null); //$NON-NLS-1$ //$NON-NLS-2$
         ///////////////////////////////////////
 
-        /** 設置MainFrame相關的版面配置 */
+        /** 設置MainFrame相關的版面配置（右側頁籤部分） */
         DrawingArea drawarea = addComponentsToPane(mainFrame_.getContentPane());
 
         /** 取得系統螢幕大小 */
@@ -137,6 +137,7 @@ public class VanetSimStart implements Runnable{
      *
      * @param container	the container on which to add the elements
      * 此處的 container 為 MainFrame的
+     * 此視窗主要分為左右兩側部分，左側為繪製地圖的頁面，右側為控制面板
      *
      * @return the constructed <code>DrawingArea</code>
      */
@@ -147,18 +148,27 @@ public class VanetSimStart implements Runnable{
         container.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
 
+        /** DrawingArea 為地圖繪製的區域 */
         DrawingArea drawarea = new DrawingArea(useDoubleBuffering_, drawManualBuffered_);
+        /** 將元件設定為水平、垂直都填滿格子 */
         c.fill = GridBagConstraints.BOTH;
+        /** 將元件設定在格子的上方 */
         c.anchor = GridBagConstraints.NORTH;
+        /** 視窗進行縮放時，元件所佔用Ｘ座標的權重 */
         c.weightx = 1;
+        /** 視窗進行縮放時，元件所佔用Ｙ座標的權重 */
         c.weighty = 1;
+        /** 設定元件在由左往右第幾行 */
         c.gridx = 0;
+        /** 設定元件在由上往下第幾列 */
         c.gridy = 0;
+        /** 設定元件垂直佔用幾個格子 */
         c.gridheight = 1;
         container.add(drawarea, c);
         Renderer.getInstance().setDrawArea(drawarea);
 
         /** 初始化 MainControlPanel 控制面板*/
+        /** controlPanel_ 為控制面板的區域 */
         controlPanel_ = new MainControlPanel();
         controlPanel_.setPreferredSize(new Dimension(200, 100000));
         c.fill = GridBagConstraints.BOTH;
