@@ -50,7 +50,7 @@ public class Scenario {
      */
     public void initNewScenario(){
 
-        if(ready_ == true){
+        if(ready_ == true){ /** 預設ready為true，所以初次必會執行 */
             /** 初始化地圖，lock不讓模擬執行 */
             ready_ = false;
             /** 停止SimulationMaster的執行緒 */
@@ -96,7 +96,10 @@ public class Scenario {
 
             EventList.getInstance().clearEvents();
 
-            /** 注意updateList（）未實作 */
+            /** 注意updateList（）未實作
+             *  於2017/11/14_2319 完成實作
+             * */
+
             if(!Renderer.getInstance().isConsoleStart())VanetSimStart.getMainControlPanel().getEditPanel().getEditEventPanel().updateList();
 
 

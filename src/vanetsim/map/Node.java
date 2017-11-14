@@ -1,6 +1,8 @@
 package vanetsim.map;
 
 
+import vanetsim.scenario.RSU;
+
 /**
  * A node on the map.
  */
@@ -18,6 +20,15 @@ public class Node {
     /** The y coordinate. */
     private int y_;	  public int getNodeY(){return y_;}
 
+    /** Saves the mix zone radius if this node includes a mix zone */
+    private int mixZoneRadius_ = 0;
+
+    /** Saves the RSU if encrypted beacons are activated */
+    private RSU encryptedRSU_ = null;
+
+    /** Holds the junction associated with this node or <code>null</code> if this is not a junction. */
+    private Junction junction_ = null;
+
     /** flag if the node has a traffic signal */
     private boolean hasTrafficSignal_;   public boolean isHasTrafficSignal(){return hasTrafficSignal_;}
 
@@ -29,6 +40,12 @@ public class Node {
 
     /** The region in which this node is. */
     private Region region_;
+
+    /** Traffic Light*/
+    private TrafficLight trafficLight_ = null;
+
+    /** Traffic Light Collections */
+    private int[] streetHasException_ = null;
 
     /**
      * Instantiates a new node.
@@ -45,12 +62,52 @@ public class Node {
         ++counter_;
     }
 
+    public boolean isHasTrafficSignal_() {
+        return hasTrafficSignal_;
+    }
+
+
 
     /**
      * Calculates if this is a junction and the priorities of all possible ways which go over this junction.
      */
     public void calculateJunction(){
         /** 待新增 */
+    }
+
+    /**
+     * @return the trafficLight_
+     */
+    public TrafficLight getTrafficLight_() {
+        return trafficLight_;
+    }
+
+    /**
+     * Gets the number of streets crossing in this node.
+     *
+     * @return the amount of streets
+     */
+    public int getCrossingStreetsCount() {
+        return crossingStreets_.length;
+    }
+
+
+    /**
+     * Returns the junction object associated with this node or <code>null</code> if this is not a junction.
+     *
+     * @return the junction or <code>null</code> if this is not a junction
+     */
+    public Junction getJunction(){
+        return junction_;
+    }
+
+    /**
+     * The mixZoneRadius
+     *
+     * @return the max zone radius
+     */
+    public int getMixZoneRadius() {
+        return mixZoneRadius_;
     }
 
     /**
@@ -69,6 +126,20 @@ public class Node {
      */
     public Region getRegion() {
         return region_;
+    }
+
+
+    public void setEncryptedRSU_(RSU encryptedRSU_) {
+        this.encryptedRSU_ = encryptedRSU_;
+    }
+
+    /**
+     * Sets the mix zone radius
+     *
+     * @param mixZoneRadius		the new mix zone radius
+     */
+    public void setMixZoneRadius(int mixZoneRadius) {
+        mixZoneRadius_ = mixZoneRadius;
     }
 
     /**
@@ -104,6 +175,10 @@ public class Node {
      */
     public void setY(int y) {
         y_ = y;
+    }
+
+    public RSU getEncryptedRSU_() {
+        return encryptedRSU_;
     }
 
     /**

@@ -121,14 +121,18 @@ public class VanetSimStart implements Runnable{
         Debug.detailedInfo("initiailze JFrame, JAVA Swing finish", Debug.ISLOGGED);
 
         /** 正式進行模擬執行緒 */
-     //   simulationMaster_ = new SimulationMaster();
-     //   simulationMaster_.start();
+        simulationMaster_ = new SimulationMaster();
+        /** 呼叫SimulationMaster的run()方法 */
+        simulationMaster_.start();
 
-        /** 此行為測試程式碼，2017/10/23 尋找startThread()是怎麼被呼叫的，推論有可能在GUI時按鈕觸發  */
+        /** 此行為測試程式碼，2017/10/23 尋找startThread()是怎麼被呼叫的，推論有可能在GUI時按鈕觸發
+         *  於2017/11/14 證實在控制面板下按下執行就會呼叫startThread（）將running_設為true
+         * */
       //  simulationMaster_.startThread();
 
-      //  Map.getInstance().initNewMap(100000, 100000, 10000, 10000);
-      //  Map.getInstance().signalMapLoaded();
+        Map.getInstance().initNewMap(100000, 100000, 10000, 10000);
+        Map.getInstance().signalMapLoaded();
+        /** --------------- 2017/11/15_0030 程式debug到此為止 ----------------- */
 
     }
 

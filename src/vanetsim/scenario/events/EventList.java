@@ -49,6 +49,15 @@ public final class EventList {
 	}
 
 	/**
+	 * Gets an iterator over all events.
+	 *
+	 * @return the iterator
+	 */
+	public Iterator<Event> getIterator(){
+		return allEvents_.iterator();
+	}
+
+	/**
 	 * Removes all events.
 	 */
 	public void clearEvents(){

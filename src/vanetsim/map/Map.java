@@ -109,14 +109,25 @@ public class Map {
         if(ready_ == true) {
             ready_ = false;
             //cleanup!
-            if (!Renderer.getInstance().isConsoleStart()) {
+
+            /*********************************
+             *  Scenario 部分
+             ********************************* */
+            if (!Renderer.getInstance().isConsoleStart()) {/** 初次必定會執行 */
 
                 /** 暫時封閉此行，該initNewScenario（）於 2017/10/24_0448 更新完成 */
                 Scenario.getInstance().initNewScenario();	//stops the simulation thread so we don't need to do it here
-                /** 初始化完成後更新其狀態為準備等待執行 */
+
+                /** 初始化完成後更新其狀態為準備等待執行
+                 *  通知SimulationMaster --> Scenario.getInstance().getReadyState() == true
+                 * */
                 Scenario.getInstance().setReadyState(true);
             }
 
+
+            /*********************************
+             *  Map 部分
+             ********************************* */
             /**
              * 分別設定原始地圖的寬（width) 和 高（height)
              * 分別設定每一個區域的寬（regionWidth) 和 高（regionHeight)
@@ -169,10 +180,13 @@ public class Map {
         for(int i = 0; i < regionCountX_; ++i) {
             for (int j = 0; j < regionCountY_; ++j) {
 
-                /** 注意calculateJunctions（）未實作 */
+                /** 注意calculateJunctions（）未實作
+                 *  於2017/11/15_0020 部分新增（calculateJunctions（）內部仍有待實作部分）
+                 * */
                 regions_[i][j].calculateJunctions();
             }
         }
+        /** 告知 SimulationMaster 執行緒可以繼續做執行（執行條件 Map => true && Scanrio => true） */
         ready_ = true;
         if(!Renderer.getInstance().isConsoleStart()){
             Renderer.getInstance().setMiddle(width_/2, height_/2);
@@ -181,12 +195,15 @@ public class Map {
 
         }
 
+        /** 暫時做註銷 checkStreetsForBridges（）方法 */
         //start a thread which calculates bridges in background so that loading is faster (it's just eyecandy and not necessary otherwise ;))
         Runnable job = new Runnable() {
             public void run(){
                 for(int i = 0; i < regionCountX_; ++i){
                     for(int j = 0; j < regionCountY_; ++j){
-                        /** 待實作checkStreetsForBridges（）方法 */
+                        /** 待實作checkStreetsForBridges（）方法
+                         *  於2017/11/15_0026 完成實作，但目前不呼叫該方法
+                         * */
                         //regions_[i][j].checkStreetsForBridges();
                     }
                 }
@@ -196,6 +213,27 @@ public class Map {
         t.setPriority(Thread.MIN_PRIORITY);
         t.start();
 
+
+    }
+
+    /**
+     * Add a new Road-Side-Unit to the correct region. A RSU can only be in one region.
+     *
+     * @param rsu	the RSU to add
+     *
+     */
+    public void addRSU(RSU rsu){
+        int regionX = rsu.getX()/regionWidth_;	//implicit rounding (=floor)because of integer values!
+        int regionY = rsu.getY()/regionHeight_;
+
+        // to prevent "array out of bounds" when RSU is outside of map
+        if (regionX >= regionCountX_) regionX = regionCountX_ - 1;
+        else if(regionX < 0) regionX = 0;
+        if (regionY >= regionCountY_) regionY = regionCountY_ - 1;
+        else if (regionY < 0) regionY = 0;
+
+        rsu.setRegion(regions_[regionX][regionY]);
+        regions_[regionX][regionY].addRSU(rsu);
     }
 
     /**

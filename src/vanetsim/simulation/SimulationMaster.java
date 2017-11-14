@@ -277,6 +277,7 @@ public class SimulationMaster extends Thread {
     /**
      * Method to let this thread start delegating work to subthreads. Work in the main function is resumed, the
      * subthreads (workers) will wake up again and the Renderer is notified to get active again.
+     * 當使用者按下控制按鈕的模擬鍵時，觸發此startThread（）方法
      * 於 2017/10/23_1220 新增
      */
     public synchronized void startThread(){
@@ -294,7 +295,9 @@ public class SimulationMaster extends Thread {
         Debug.detailedInfo("notify renderer to run the simulation", Debug.ISLOGGED);
         Renderer.getInstance().notifySimulationRunning(true);
         ErrorLog.log(Messages.getString("SimulationMaster.simulationStarted"), 2, SimulationMaster.class.getName(), "startThread", null); //$NON-NLS-1$ //$NON-NLS-2$
+        /** 呼叫準備所有靜態繪圖物件 */
         Renderer.getInstance().ReRender(true, false);
+
         running_ = true;
     }
 
@@ -356,10 +359,13 @@ public class SimulationMaster extends Thread {
 
         /** -----------------------  程式執行到此 2017/10/22_0057      --------------------- */
 
-        /** 將barrierRender提交給Renderer做管理 */
+        /** 將barrierRender提交給Renderer做管理
+         *  未來做好Renderer與SimulationMaster執行緒協調同步
+         * */
         renderer.setBarrierForSimulationMaster(barrierRender);
 
         ReportingControlPanel statsPanel = null;
+        /** 預設 consoleStart 為 false，故一開始statsPanel會被指定 ReportingControlPanel 物件*/
         if(!Renderer.getInstance().isConsoleStart()) statsPanel = VanetSimStart.getMainControlPanel().getReportingPanel();
 
         long timeOld = 0;
@@ -373,8 +379,10 @@ public class SimulationMaster extends Thread {
 
 
             try{
+                /** 預設 running_ 和 doOneStep_ 為false，待其中一項被觸發後執行if
+                 *  在控制面板下按下執行就會呼叫startThread（）將running_設為true
+                 * */
                 if(running_ || doOneStep_){
-
 
                     Debug.detailedInfo("running on state running or doOneStep", Debug.ISLOGGED);
 
@@ -383,6 +391,7 @@ public class SimulationMaster extends Thread {
                     /** barrierRender 執行緒進行重設 */
                     barrierRender.reset();
 
+                    /** workers_為WorkerThread[]物件 */
                     while(workers_ == null){  /** 當執行緒還未被產生時，產生執行緒 */
 
                         Debug.detailedInfo("when workers_ is null", Debug.ISLOGGED);

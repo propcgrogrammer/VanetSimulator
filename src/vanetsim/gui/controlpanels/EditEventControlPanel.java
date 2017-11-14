@@ -204,7 +204,15 @@ public final class EditEventControlPanel extends JPanel implements ActionListene
      * Update the event list.
      */
     public void updateList(){
-        /** 待增加 */
+        /** 待增加
+         *  於2017/11/14_2320 新增
+         * */
+
+        Iterator<Event> eventIterator = EventList.getInstance().getIterator();
+        listModel_.clear();
+        while(eventIterator.hasNext()){
+            listModel_.addElement(eventIterator.next());
+        }
     }
 
     /**

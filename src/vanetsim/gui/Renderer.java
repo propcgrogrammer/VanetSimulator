@@ -295,8 +295,11 @@ public final class Renderer{
                 if(!simulationRunning_ || forceRenderNow){
                     if(scheduleFullRender_){
                         scheduleFullRender_ = false;
-                       // drawArea_.prepareBufferedImages();
-                        /** 補足prepareBufferedImages（）未實作 */
+                        /** 準備繪圖的靜態資源 (street) */
+                        drawArea_.prepareBufferedImages();
+                        /** 補足prepareBufferedImages（）未實作
+                         *  於2017/11/14_2239 完成實作
+                         * */
                     }
                     doPaintInitializedBySimulation_ = true;
                     drawArea_.repaint();
@@ -307,6 +310,496 @@ public final class Renderer{
 
 
     }
+
+
+    /**
+     * This function renders all non-moving objects on a supplied image.
+     * All streets and other static objects are rendered into the cached Image in this function.
+     * This function should only be called on
+     * <ul>
+     * <li>size changes of the drawing area</li>
+     * <li>zooming or panning</li>
+     * <li>map loading</li>
+     * <li>new map objects appearing</li>
+     * </ul>
+     *
+     * <br><br>
+     *
+     * 2017/11/14_1823 新增
+     * Note: The main performance factor here are the calls to <code>draw()</code> or <code>drawLine()</code>. This is a factor determined by the underlying graphics
+     * subsytem and there's not much space for lot of improvement.
+     * Multithreading approaches are not possible here: The graphics subsystem is just singlethreaded (blocks concurrent draw-Calls
+     * even if they are done on different BufferedImages) and so there's no performance benefit.<br>
+     * Optimizing anything concerned with iterating through the regions is not worth it because the cpu time for this is barely measurable after
+     * using <code>ArrayLists</code> instead of <code>Iterators</code> (iterators create lots of object creations and calls)<br>
+     *
+     * @param image the <code>BufferedImage</code> on which rendering should be done
+     */
+    public synchronized void drawStaticObjects(BufferedImage image){
+
+        Graphics2D g2d = image.createGraphics();
+        Region[][] regions = map_.getRegions();
+
+        if(regions != null && map_.getReadyState()){
+
+            int savedRegionMinX = regionMinX_;		//copy as we might change it beneath
+            int savedRegionMaxX = regionMaxX_;
+            int savedRegionMinY = regionMinY_;
+            int savedRegionMaxY = regionMaxY_;
+
+            //try to reuse image elements if possible (only possible when panning); this reduces rendering time by up to 50%!
+            /** 只有橫向和縱向移動 */
+            if(!lastOverdrawn_ && (((panCountX_ == 1 || panCountX_ == -1) && panCountY_ == 0) || ((panCountY_ == 1 || panCountY_ == -1) && panCountX_ == 0))) {    // only ONE change in ONE direction has happened since last render
+
+                //draw old image onto new one with an offset in x or y direction
+                g2d.drawImage(image, (int)Math.round(panCountX_*drawWidth_/2), (int)Math.round(panCountY_*drawHeight_/2), null, drawArea_);
+
+                //calculate and set clipping for new drawing operation
+                int clipX=0, clipY=0, clipWidth, clipHeight;
+                if(panCountX_ != 0) clipWidth = drawWidth_/2;
+                else clipWidth = drawWidth_;
+                if(panCountY_ != 0) clipHeight = drawHeight_/2;
+                else clipHeight = drawHeight_;
+                if(panCountX_ < 0)	clipX = drawWidth_/2;
+                else if(panCountY_ < 0) clipY = drawHeight_/2;
+                g2d.setClip(clipX,clipY,clipWidth,clipHeight);
+
+                //Update coordinates which need to be drawn
+                int newMinX=mapMinX_, newMaxX=mapMaxX_,newMinY=mapMinY_, newMaxY=mapMaxY_;
+                if(panCountX_ > 0) newMaxX = mapMaxX_ - ((mapMaxX_-mapMinX_)/2);
+                else if(panCountX_ < 0) newMinX = mapMinX_ + ((mapMaxX_-mapMinX_)/2);
+                if(panCountY_ > 0) newMaxY = mapMaxY_ - ((mapMaxY_-mapMinY_)/2);
+                else if(panCountY_ < 0) newMinY = mapMinY_ + ((mapMaxY_-mapMinY_)/2);
+
+                //Update regions which need to be drawn
+                Region tmpRegion = map_.getRegionOfPoint(newMinX, newMinY);
+                savedRegionMinX = tmpRegion.getX();
+                savedRegionMinY = tmpRegion.getY();
+                tmpRegion = map_.getRegionOfPoint(newMaxX, newMaxY);
+                savedRegionMaxX = tmpRegion.getX();
+                savedRegionMaxY = tmpRegion.getY();
+
+            }
+
+            panCountX_ = 0;
+            panCountY_ = 0;
+
+            // fill background
+            g2d.setColor(new Color(230,230,230));
+            g2d.fillRect(0,0,drawWidth_,drawHeight_);
+
+            //Check if we're near enough to use antialiasing (quite costly if there are too many streets)
+            boolean antialias = true;
+            if(zoom_ > 0.0018) g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+            else {
+                antialias = false;
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_OFF);
+            }
+
+            // set transformation (for automatic scaling and panning)
+            g2d.setTransform(transform_);
+
+            // paint outline of map
+            if(!antialias) g2d.setPaint(Color.gray);
+            else g2d.setPaint(Color.black);
+            g2d.drawRect(0, 0, map_.getMapWidth(), map_.getMapHeight());
+
+            // prepare variables
+            int i, j, k, totalLanes, lastEntry = -1;
+            Street street;
+            Region streetRegion;
+            Node startNode, endNode;
+            Street[] streets;
+            TreeMap<Integer,Path2D.Float> layers = new TreeMap<Integer,Path2D.Float>();		//a sorted map so that we always get the same result (basically sorted by color)
+            Path2D.Float currentPath = null;
+
+            // display mix zones, moved to drawStaticObject() to improve the performance
+            if(showMixZones_ || (!hideMixZones_ && Vehicle.getCommunicationEnabled() && Vehicle.getMixZonesEnabled())){
+                g2d.setPaint(Color.LIGHT_GRAY);
+                for(i = regionMinX_; i <= regionMaxX_; ++i){
+                    for(j = regionMinY_; j <= regionMaxY_; ++j){
+                        Node[] nodes = regions[i][j].getMixZoneNodes();
+                        for(int l = 0; l < nodes.length; ++l){
+                            g2d.setPaint(Color.LIGHT_GRAY);
+                            g2d.fillOval(nodes[l].getX()-nodes[l].getMixZoneRadius(), nodes[l].getY()-nodes[l].getMixZoneRadius(),nodes[l].getMixZoneRadius()*2,nodes[l].getMixZoneRadius()*2);
+                            g2d.setPaint(Color.RED);
+                            if(nodes[l].getEncryptedRSU_() != null){
+                                g2d.fillOval(nodes[l].getEncryptedRSU_().getX() - 1500, nodes[l].getEncryptedRSU_().getY() - 1500,3000,3000);
+                            }
+                        }
+                    }
+                }
+            }
+
+            //draw location Information silent period
+            if(locationInformationSilentPeriod_ != null){
+                showMixZones_ = true;
+                String[] data;
+                for(String location:locationInformationSilentPeriod_){
+                    data = location.split(":");
+                    if(data[0].equals("true"))g2d.setPaint(Color.RED);
+                    else g2d.setPaint(Color.GREEN);
+                    g2d.drawOval(Integer.parseInt(data[1])-2500, Integer.parseInt(data[2])-2500,5000,5000);
+                }
+            }
+
+            //draw location Information mix
+            if(locationInformationMix_ != null){
+                String[] data;
+                int size = 0;
+                for(String location:locationInformationMix_){
+                    data = location.split(":");
+                    if(Float.parseFloat(data[4]) != 0) size = (int)(1000 + (Float.parseFloat(data[4])/mixZoneAmount)*100000);
+                    else size = 0;
+                    g2d.setPaint(new Color((int)(Float.parseFloat(data[2])*200) + 55,(int)(Float.parseFloat(data[3])*200)+55,0));
+                    g2d.fillOval(Integer.parseInt(data[0])-size, Integer.parseInt(data[1])-size,size*2,size*2);
+                }
+            }
+
+
+            // Create and draw a black background so that streets have black boundaries. Only makes sense when antialias is on because otherwise it looks ugly and is really slow(!)
+            if(antialias){
+                for(i = savedRegionMinX; i <= savedRegionMaxX; ++i){
+                    for(j = savedRegionMinY; j <= savedRegionMaxY; ++j){
+                        streets = regions[i][j].getStreets();
+                        for(k = 0; k < streets.length; ++k){
+                            street = streets[k];
+                            streetRegion = street.getMainRegion();
+                            if(streetRegion==regions[i][j] || streetRegion.getX()<savedRegionMinX || streetRegion.getX()>savedRegionMaxX || streetRegion.getY()<savedRegionMinY || streetRegion.getY()>savedRegionMaxY){	// only paint it if necessary (to prevent painting it multiple times)
+                                if(street.isOneway()) totalLanes = street.getLanesCount();
+                                else totalLanes = 2 * street.getLanesCount();
+                                if(lastEntry != totalLanes){
+                                    lastEntry = totalLanes;
+                                    currentPath = layers.get(totalLanes);
+                                    if(currentPath == null){
+                                        currentPath = new Path2D.Float (Path2D.WIND_NON_ZERO, 5000);
+                                        layers.put(lastEntry, currentPath);
+                                    }
+                                }
+                                startNode = street.getStartNode();		//saves some function calls
+                                endNode = street.getEndNode();
+                                currentPath.moveTo(startNode.getX(), startNode.getY());
+                                currentPath.lineTo(endNode.getX(), endNode.getY());
+                            }
+                        }
+                    }
+                }
+                Iterator<Integer> iterator = layers.keySet().iterator();
+                int key;
+                g2d.setPaint(Color.black);
+                g2d.setStroke(lineBackground_);
+                //iterate through all layers and draw them
+                while(iterator.hasNext()){
+                    key = iterator.next();
+                    if(key == 2) g2d.setStroke(lineBackground_);
+                    else g2d.setStroke(new BasicStroke(Map.LANE_WIDTH*key+90,BasicStroke.CAP_ROUND,BasicStroke.JOIN_MITER));
+                    g2d.draw(layers.get(key));
+                }
+            }
+
+            //now create the layers. This second iteration step (only second one if antialiasing is on) is actually faster than mixing it into the first one!)
+            layers.clear();		// to store the layers of the map separated by color
+            lastEntry = 1;
+            boolean detailedView;
+            if(zoom_ > 0.0001) detailedView = true;	// only show fast speed streets if zoom is very far away
+            else detailedView = false;
+
+            for(i = savedRegionMinX; i <= savedRegionMaxX; ++i){
+                for(j = savedRegionMinY; j <= savedRegionMaxY; ++j){
+                    streets = regions[i][j].getStreets();
+                    for(k = 0; k < streets.length; ++k){
+                        street = streets[k];
+                        streetRegion = street.getMainRegion();
+                        if(streetRegion==regions[i][j] || streetRegion.getX()<savedRegionMinX || streetRegion.getX()>savedRegionMaxX || streetRegion.getY()<savedRegionMinY || streetRegion.getY()>savedRegionMaxY){	// only paint it if necessary (to prevent painting it multiple times)
+                            if(detailedView || street.getSpeed() > 2000){
+                                startNode = street.getStartNode();		//saves some function calls
+                                endNode = street.getEndNode();
+                                if(antialias){
+                                    if(street.isOneway()) totalLanes = street.getDisplayColor().getRGB()*100 - street.getLanesCount();
+                                    else totalLanes = street.getDisplayColor().getRGB()*100 - (2*street.getLanesCount());
+                                } else totalLanes = street.getDisplayColor().getRGB();
+                                if(lastEntry != totalLanes){
+                                    lastEntry = totalLanes;
+                                    currentPath = layers.get(totalLanes);
+                                    if(currentPath == null){	//create the layer if doesn't exist yet
+                                        currentPath = new Path2D.Float (Path2D.WIND_NON_ZERO, 5000);
+                                        layers.put(lastEntry, currentPath);
+                                    }
+                                }
+                                currentPath.moveTo(startNode.getX(), startNode.getY());
+                                currentPath.lineTo(endNode.getX(), endNode.getY());
+                            }
+                        }
+                    }
+                }
+            }
+
+            Color drawColor;
+            Iterator<Integer> coloriterator = layers.keySet().iterator();
+            int key, lanes;
+            //iterate through all layers and draw them
+            while(coloriterator.hasNext()){
+                key = coloriterator.next();
+                if(antialias){
+                    drawColor = new Color(key/100);
+                    lanes = -key+(key/100*100);
+                    if(lanes == 2) g2d.setStroke(lineMain_);
+                    else g2d.setStroke(new BasicStroke(Map.LANE_WIDTH*lanes,BasicStroke.CAP_ROUND,BasicStroke.JOIN_MITER));
+                } else {
+                    g2d.setStroke(lineMain_);
+                    drawColor = new Color(Math.max((int)(((key >> 16) & 0xFF) *0.8), 0), Math.max((int)(((key >> 8) & 0xFF)*0.8), 0), Math.max((int)(((key >> 0) & 0xFF)*0.8), 0));	//simulate colors like if they were with antialias (darker)!
+                }
+                g2d.setPaint(drawColor);
+                g2d.draw(layers.get(key));
+            }
+
+            // If the zoom is near enough, do a correction to display bridges more accurately (though not perfect as intersection calculation
+            // seems to be a little bit problematic in some rare cases)
+            if(antialias){
+                int l, correction;
+                int[] start = new int[2];
+                int[] end = new int[2];
+                boolean correctStart, correctEnd;
+                ArrayList<Point2D.Double> paintArrayList;
+                //1. step: paint streets again which are bridges
+                for(i = savedRegionMinX; i <= savedRegionMaxX; ++i){
+                    for(j = savedRegionMinY; j <= savedRegionMaxY; ++j){
+                        streets = regions[i][j].getStreets();
+                        for(k = 0; k < streets.length; ++k){
+                            street = streets[k];
+                            streetRegion = street.getMainRegion();
+                            if(streetRegion==regions[i][j] || streetRegion.getX()<savedRegionMinX || streetRegion.getX()>savedRegionMaxX || streetRegion.getY()<savedRegionMinY || streetRegion.getY()>savedRegionMaxY){	// only paint it if necessary (to prevent painting it multiple times)
+                                if(street.getBridgePaintLines() != null || street.getBridgePaintPolygons() != null){
+                                    if(street.isOneway()) totalLanes = street.getLanesCount();
+                                    else totalLanes = 2 * street.getLanesCount();
+                                    correction = totalLanes * Map.LANE_WIDTH*2;
+                                    correctStart = false;
+                                    correctEnd = false;
+                                    start[0] = street.getStartNode().getX();
+                                    start[1] = street.getStartNode().getY();
+                                    end[0] = street.getEndNode().getX();
+                                    end[1] = street.getEndNode().getY();
+                                    if(street.getStartNode().getCrossingStreetsCount() > 2) correctStart = true;
+                                    if(street.getEndNode().getCrossingStreetsCount() > 2) correctEnd = true;
+                                    if(street.getLength() > correction*2) {
+                                        MapHelper.calculateResizedLine(start, end, correction, correctStart, correctEnd);
+                                        //paint the now shorter line completely
+                                        g2d.setStroke(new BasicStroke(Map.LANE_WIDTH*totalLanes+90,BasicStroke.CAP_BUTT,BasicStroke.JOIN_MITER));
+
+
+                                        g2d.setColor(Color.black);
+                                        g2d.drawLine(start[0], start[1], end[0], end[1]);
+                                        g2d.setStroke(new BasicStroke(Map.LANE_WIDTH*totalLanes,BasicStroke.CAP_ROUND,BasicStroke.JOIN_MITER));
+                                        g2d.setColor(street.getDisplayColor());
+                                        g2d.drawLine(start[0], start[1], end[0], end[1]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                //Step 2: Paint the overlapping parts again
+                for(i = savedRegionMinX; i <= savedRegionMaxX; ++i){
+                    for(j = savedRegionMinY; j <= savedRegionMaxY; ++j){
+                        streets = regions[i][j].getStreets();
+                        for(k = 0; k < streets.length; ++k){
+                            street = streets[k];
+                            streetRegion = street.getMainRegion();
+                            if(streetRegion==regions[i][j] || streetRegion.getX()<savedRegionMinX || streetRegion.getX()>savedRegionMaxX || streetRegion.getY()<savedRegionMinY || streetRegion.getY()>savedRegionMaxY){	// only paint it if necessary (to prevent painting it multiple times)
+                                //Step 2.1: Paint intersections which consist of 4 intersection points
+                                paintArrayList = street.getBridgePaintPolygons();
+                                if(paintArrayList != null){
+                                    g2d.setColor(street.getDisplayColor());
+                                    for(l = 3; l < paintArrayList.size(); l= l+4){
+                                        int[] xPoints = new int[4];
+                                        int[] yPoints = new int[4];
+                                        xPoints[0]=(int)Math.round(paintArrayList.get(l-3).x);
+                                        yPoints[0]=(int)Math.round(paintArrayList.get(l-3).y);
+                                        xPoints[1]=(int)Math.round(paintArrayList.get(l-2).x);
+                                        yPoints[1]=(int)Math.round(paintArrayList.get(l-2).y);
+                                        xPoints[2]=(int)Math.round(paintArrayList.get(l).x);
+                                        yPoints[2]=(int)Math.round(paintArrayList.get(l).y);
+                                        xPoints[3]=(int)Math.round(paintArrayList.get(l-1).x);
+                                        yPoints[3]=(int)Math.round(paintArrayList.get(l-1).y);
+                                        start[0] = xPoints[0];
+                                        start[1] = yPoints[0];
+                                        end[0] = xPoints[3];
+                                        end[1] = yPoints[3];
+                                        MapHelper.calculateResizedLine(start, end, 50, true, true);
+                                        xPoints[0] = start[0];
+                                        yPoints[0] = start[1];
+                                        xPoints[3] = end[0];
+                                        yPoints[3] = end[1];
+                                        start[0] = xPoints[1];
+                                        start[1] = yPoints[1];
+                                        end[0] = xPoints[2];
+                                        end[1] = yPoints[2];
+                                        MapHelper.calculateResizedLine(start, end, 50, true, true);
+                                        xPoints[1] = start[0];
+                                        yPoints[1] = start[1];
+                                        xPoints[2] = end[0];
+                                        yPoints[2] = end[1];
+                                        g2d.fillPolygon(xPoints, yPoints, 4);
+                                    }
+                                    g2d.setStroke(new BasicStroke(45,BasicStroke.CAP_SQUARE,BasicStroke.JOIN_MITER));
+                                    g2d.setColor(Color.black);
+                                    for(l = 1; l < paintArrayList.size(); l= l+2){
+                                        int x1=(int)Math.round(paintArrayList.get(l-1).x);
+                                        int y1=(int)Math.round(paintArrayList.get(l-1).y);
+                                        int x2=(int)Math.round(paintArrayList.get(l).x);
+                                        int y2=(int)Math.round(paintArrayList.get(l).y);
+                                        g2d.drawLine(x1, y1, x2, y2);
+                                    }
+                                }
+                                //Step 2.2: Paint intersections which consist of 2 intersection points
+                                paintArrayList = street.getBridgePaintLines();
+                                if(paintArrayList != null){
+                                    g2d.setStroke(new BasicStroke(45,BasicStroke.CAP_SQUARE,BasicStroke.JOIN_MITER));
+                                    g2d.setColor(Color.black);
+                                    for(l = 1; l < paintArrayList.size(); l= l+2){
+                                        int x1=(int)Math.round(paintArrayList.get(l-1).x);
+                                        int y1=(int)Math.round(paintArrayList.get(l-1).y);
+                                        int x2=(int)Math.round(paintArrayList.get(l).x);
+                                        int y2=(int)Math.round(paintArrayList.get(l).y);
+                                        g2d.drawLine(x1, y1, x2, y2);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // display RSUs
+            if(isShowRSUs() || simulationRunning_){
+                g2d.setStroke(new BasicStroke(20,BasicStroke.CAP_BUTT,BasicStroke.JOIN_MITER));
+                g2d.setPaint(rsuColor);
+                for(i = regionMinX_; i <= regionMaxX_; ++i){
+                    for(j = regionMinY_; j <= regionMaxY_; ++j){
+                        RSU[] rsus = regions[i][j].getRSUs();
+                        for(int l = 0; l < rsus.length; ++l){
+                            if(highlightCommunication_)g2d.drawOval(rsus[l].getX()-rsus[l].getWifiRadius(), rsus[l].getY()-rsus[l].getWifiRadius(),rsus[l].getWifiRadius()*2,rsus[l].getWifiRadius()*2);
+                            g2d.fillOval(rsus[l].getX() - 250, rsus[l].getY() - 250,500,500);
+                        }
+                    }
+                }
+            }
+
+            // display mix entrances. Only active if debugMode is on
+
+            if(debugMode){
+                g2d.setPaint(Color.PINK);
+                g2d.setFont(new Font("SansSerif", Font.PLAIN, 400));
+                g2d.setStroke(new BasicStroke(20,BasicStroke.CAP_BUTT,BasicStroke.JOIN_MITER));
+
+                for(i = regionMinX_; i <= regionMaxX_; ++i){
+                    for(j = regionMinY_; j <= regionMaxY_; ++j){
+                        ArrayList<String> xxx = regions[i][j].xxx;
+                        ArrayList<String> yyy = regions[i][j].yyy;
+                        ArrayList<String> nnn = regions[i][j].nnn;
+                        if(xxx != null){
+
+                            for(k = 0; k < xxx.size(); k++){
+                                g2d.drawOval(Integer.parseInt(xxx.get(k))-300, Integer.parseInt(yyy.get(k))-300,300*2,300*2);
+                                g2d.drawString(nnn.get(k), Integer.parseInt(xxx.get(k)), Integer.parseInt(yyy.get(k)));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // display ARSUs
+            if(isShowAttackers() || simulationRunning_){
+                g2d.setStroke(new BasicStroke(20,BasicStroke.CAP_BUTT,BasicStroke.JOIN_MITER));
+                g2d.setPaint(arsuColor);
+                AttackRSU[] tempARSUList= Vehicle.getArsuList();
+
+                if(tempARSUList.length > 0){
+                    for(int l = 0; l < tempARSUList.length;l++) {
+                        if(highlightCommunication_)g2d.drawOval(tempARSUList[l].getX()-tempARSUList[l].getWifiRadius(), tempARSUList[l].getY()-tempARSUList[l].getWifiRadius(),tempARSUList[l].getWifiRadius()*2,tempARSUList[l].getWifiRadius()*2);
+                        g2d.fillOval(tempARSUList[l].getX() - 250, tempARSUList[l].getY() - 250,500,500);
+                    }
+                }
+            }
+
+
+        }else {
+            // just fill background
+            g2d.setColor(new Color(230,230,230));
+            g2d.fillRect(0,0,drawWidth_,drawHeight_);
+        }
+        g2d.dispose(); // should be disposed to aid garbage collector
+
+    }
+
+
+    /**
+     * Creates an image to see the current scale.
+     * 2017/11/14_1825 新增
+     * @param image	the <code>BufferedImage</code> on which rendering should be done
+     */
+    public void drawScale(BufferedImage image){
+        Graphics2D g2d = image.createGraphics();
+        g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+        g2d.setColor(Color.white);
+        g2d.fillRect(1, 1, 98, 28);
+        g2d.setColor(Color.black);
+        try{
+            Point2D.Double point1 = new Point2D.Double();
+            Point2D.Double point2 = new Point2D.Double();
+            transform_.inverseTransform(new Point2D.Double(0,0), point1);
+            transform_.inverseTransform(new Point2D.Double(0,70), point2);
+            int len = (int)Math.round(point2.getY() - point1.getY());	//calculate length in cm of a 70px sample
+            //now find an "appropriate" length which is smaller than 70px and an even multiple of a base distance (for example 7km, 300m, 20m instead of 7.2km, 312m and 24.2m)
+            if(len < 1){
+                double len3 = (point2.getY() - point1.getY())*10;
+                DecimalFormat df = new DecimalFormat(",###.###"); //$NON-NLS-1$
+                g2d.drawString(df.format(len3) + " mm", 30, 15); //$NON-NLS-1$
+                g2d.drawLine(15, 20, 85, 20);
+                g2d.drawLine(15, 18, 15, 22);
+                g2d.drawLine(85, 18, 85, 22);
+            } else {
+                transform_.transform(new Point2D.Double(0,0), point1);
+                if(len > 10000000){	//100km and more
+                    len = len/10000000;
+                    transform_.transform(new Point2D.Double(0,len*10000000), point2);
+                    g2d.drawString(len + "00 km", 25, 15);					 //$NON-NLS-1$
+                } else if(len > 1000000){	//10km
+                    len = len/1000000;
+                    transform_.transform(new Point2D.Double(0,len*1000000), point2);
+                    g2d.drawString(len + "0 km", 30, 15); //$NON-NLS-1$
+                } else if(len > 100000){	//1km
+                    len = len/100000;
+                    transform_.transform(new Point2D.Double(0,len*100000), point2);
+                    g2d.drawString(len + " km", 35, 15); //$NON-NLS-1$
+                } else if(len > 10000){	//100m
+                    len = len/10000;
+                    transform_.transform(new Point2D.Double(0,len*10000), point2);
+                    g2d.drawString(len + "00 m", 35, 15); //$NON-NLS-1$
+                } else if(len > 1000){		//10m
+                    len = len/1000;
+                    transform_.transform(new Point2D.Double(0,len*1000), point2);
+                    g2d.drawString(len + "0 m", 35, 15); //$NON-NLS-1$
+                } else if(len > 100){		//1m
+                    len = len/100;
+                    transform_.transform(new Point2D.Double(0,len*100), point2);
+                    g2d.drawString(len + " m", 35, 15); //$NON-NLS-1$
+                } else if(len > 10){		//10cm
+                    len = len/10;
+                    transform_.transform(new Point2D.Double(0,len*10), point2);
+                    g2d.drawString(len + "0 cm", 35, 15); //$NON-NLS-1$
+                } else {		//1cm
+                    transform_.transform(new Point2D.Double(0,len), point2);
+                    g2d.drawString(len + " cm", 35, 15); //$NON-NLS-1$
+                }
+                len = (int)Math.round(point2.getY() - point1.getY());
+                g2d.drawLine(15, 20, 15+len, 20);
+                g2d.drawLine(15, 18, 15, 22);
+                g2d.drawLine(15+len, 18, 15+len, 22);
+            }
+        } catch (Exception e){}
+    }
+
 
     /**
      * Sets a new zooming factor.
