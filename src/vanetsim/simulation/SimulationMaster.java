@@ -110,8 +110,6 @@ public class SimulationMaster extends Thread {
      */
     public WorkerThread[] createWorkers(int timePerStep, int threads){
 
-
-
         Debug.callFunctionInfo(this.getClass().getName(), "createWorkers(int timePerStep, int threads)", Debug.ISLOGGED);
 
         Debug.detailedInfo("use ArrayList to store WorkerThread", Debug.ISLOGGED);
@@ -169,6 +167,7 @@ public class SimulationMaster extends Thread {
                 map.put("j",String.valueOf(j));
                 map.put("threads",String.valueOf(threads));
                 map.put("count", String.valueOf(count));
+                map.put("Math.round(target)", String.valueOf(Math.round(target)));
 
                 /** ============================================================= */
 
@@ -182,7 +181,7 @@ public class SimulationMaster extends Thread {
 
 
                     Debug.detailedInfo("when count >= Math.round(target)", Debug.ISLOGGED);
-                    map.put("Math.round(target)", String.valueOf(Math.round(target)));
+
                     Debug.getInstance().debugInfo(map, Debug.ISLOGGED);
 
 
@@ -212,8 +211,8 @@ public class SimulationMaster extends Thread {
                         /**
                          * ========= 2017/10/23_2242 新增 =========
                          */
-                        ThreadInfo.getInstance().addThreadＳupervise(tmpWorker);
-                        ThreadInfo.getInstance().start();
+//                        ThreadInfo.getInstance().addThreadＳupervise(tmpWorker);
+//                        ThreadInfo.getInstance().start();
                         /**
                          * =======================================
                          */

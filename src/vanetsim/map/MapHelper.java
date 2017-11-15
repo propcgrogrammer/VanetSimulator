@@ -20,6 +20,71 @@ public class MapHelper {
 
 
     /**
+     * Gets the x and y coordinate difference of a parallel line on the right side (seen from first point to second point).
+     *
+     * @param x1 		the x coordinate of the first point
+     * @param y1 		the y coordinate of the first point
+     * @param x2 		the x coordinate of the second point
+     * @param y2 		the y coordinate of the second point
+     * @param distance	the distance
+     * @param result	an array to return the coordinate differences of the parallel. The x coordinate difference will
+     * 					be in <code>result[0]</code>, the y coordinate difference in <code>result[1]</code>.
+     *
+     * @return <code>true</code> if calculation was successful, else <code>false</code>
+     */
+    public static boolean getXYParallelRight(int x1, int y1, int x2, int y2, int distance, double[] result){
+        if(result.length == 2){
+            int dx = x2 - x1;
+            int dy = y2 - y1;
+            if(dx == 0){
+                if(dy < 0){
+                    result[0] = distance;
+                    result[1] = 0;
+                } else {
+                    result[0] = -distance;
+                    result[1] = 0;
+                }
+                return true;
+            } else if (dy == 0){
+                if(dx > 0){
+                    result[0] = 0;
+                    result[1] = distance;
+                } else {
+                    result[0] = 0;
+                    result[1] = -distance;
+                }
+                return true;
+            } else {
+                //line parameter of this street (y = ax+b). b is unneeded here.
+                double a = ((double)y1 - y2) / ((double)x1 - x2);
+
+                //the line parameters for the normal
+                double a2 = -1.0/a;
+                double b2 = y1 - a2 * x1;
+
+                //create a relatively long line with the normal's parameters
+                double endX2 = x1 + 200000.0;
+                double endY2 = a2 * endX2 + b2;
+
+                //calculate the length of this created line
+                double dx2 = endX2 - x1;
+                double dy2 = endY2 - y1;
+                double length2 = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+
+                //the difference we need can be calculated relative to the length of the created line
+                double tmp = distance / length2;
+                result[0] = dx2*tmp;
+                result[1] = dy2*tmp;
+                if(dy > 0){		//opposite direction
+                    result[0] = -result[0];
+                    result[1] = -result[1];
+                }
+                return true;
+            }
+        } else return false;
+    }
+
+    /**
      * Recalculates start and end points of a line so that the line is shorter or longer than before.
      *
      * @param startPoint	the start point. x coordinate is expected in <code>startPoint[0]</code>, y in <code>startPoint[1]</code>.

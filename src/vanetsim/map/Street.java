@@ -107,18 +107,45 @@ public final class Street {
      */
     public Street(String name, Node startNode, Node endNode, String streetType, int oneway, int lanes, Color displayColor, Region mainRegion, int maxSpeed) {
 
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "Street(String name, Node startNode, Node endNode, String streetType, int oneway, int lanes, Color displayColor, Region mainRegion, int maxSpeed)", true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "Street(String name, Node startNode, Node endNode, String streetType, int oneway, int lanes, Color displayColor, Region mainRegion, int maxSpeed)", Debug.ISLOGGED);
 
 
-        name_ = name;
-        streetType_ = streetType;
-        displayColor_ = displayColor;
-        laneCount_ = lanes;
-        mainRegion_ = mainRegion;
+        name_ = name; /** 道路名稱 */
+        streetType_ = streetType;  /** 道路型態 */
+        displayColor_ = displayColor;  /** 顯示顏色 */
+        laneCount_ = lanes;  /** 道路線道數 */
+        mainRegion_ = mainRegion; /** 位在哪個區域 */
         maxSpeed_ = maxSpeed;
 
-        /** 待新增 */
+        /** 待新增
+         *  於2017/11/15_1853 完整新增
+         * */
+        if (oneway == 0){ /** 表該道路為雙向道 */
+            startNode_ = startNode;
+            endNode_ = endNode;
+            startNode_.addOutgoingStreet(this);
+            endNode_.addOutgoingStreet(this);
+            startNode_.addCrossingStreet(this);
+            endNode_.addCrossingStreet(this);
+            oneway_ = false;   /** 非單向道路 */
+        }else if (oneway == 1) { /** 表該道路為單行道 */
+            startNode_ = startNode;
+            endNode_ = endNode;
+            startNode_.addOutgoingStreet(this);
+            startNode_.addCrossingStreet(this);
+            endNode_.addCrossingStreet(this);
+            oneway_ = true;  /** 為單向道路 */
+        }else {	// oneway street with wrong order => change it!
+            endNode_ = startNode;
+            startNode_ = endNode;
+            startNode_.addOutgoingStreet(this);
+            startNode_.addCrossingStreet(this);
+            endNode_.addCrossingStreet(this);
+            oneway_ = true;
+        }
+
+
 
         long dx = endNode_.getX() - startNode_.getX();
         long dy = endNode_.getY() - startNode_.getY();
@@ -127,8 +154,11 @@ public final class Street {
         //Calculate lane correction
         double[] result = new double[2];
 
-        /** 待新增 */
+        /** 待新增
+         *  於2017/11/15_2145 完整新增
+         * */
 
+        MapHelper.getXYParallelRight(startNode_.getX(), startNode_.getY(), endNode_.getX(), endNode_.getY(), Map.LANE_WIDTH, result);
 
         xFactor_ = result[0];
         yFactor_ = result[1];

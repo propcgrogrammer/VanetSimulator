@@ -6,6 +6,7 @@ import vanetsim.gui.DrawingArea;
 import vanetsim.gui.Renderer;
 import vanetsim.gui.controlpanels.MainControlPanel;
 import vanetsim.gui.helpers.ProgressOverlay;
+import vanetsim.gui.helpers.ReRenderManager;
 import vanetsim.localization.Messages;
 import vanetsim.map.Map;
 import vanetsim.simulation.SimulationMaster;
@@ -128,11 +129,14 @@ public class VanetSimStart implements Runnable{
         /** 此行為測試程式碼，2017/10/23 尋找startThread()是怎麼被呼叫的，推論有可能在GUI時按鈕觸發
          *  於2017/11/14 證實在控制面板下按下執行就會呼叫startThread（）將running_設為true
          * */
-      //  simulationMaster_.startThread();
+        //simulationMaster_.startThread();
 
         Map.getInstance().initNewMap(100000, 100000, 10000, 10000);
         Map.getInstance().signalMapLoaded();
         /** --------------- 2017/11/15_0030 程式debug到此為止 ----------------- */
+
+        ReRenderManager.getInstance().start();
+
 
     }
 

@@ -1,6 +1,7 @@
 package vanetsim.gui.helpers;
 
 import vanetsim.debug.Debug;
+import vanetsim.gui.Renderer;
 
 /**
  * A small manager to get better user experience through buffering ReRender-calls.
@@ -53,5 +54,27 @@ public class ReRenderManager extends Thread{
         doRender_ = true;
     }
 
+
+    /**
+     * A thread which checks if a re-rendering is scheduled and then sleeps 50ms. If necessary, it
+     * calls the {@link Renderer} to perform a full re-render.
+     *
+     * @see java.lang.Thread#run()
+     */
+    public void run(){
+        Debug.callFunctionInfo(this.getClass().getName(), "run()", Debug.ISLOGGED);
+        setName("ReRenderManager"); //$NON-NLS-1$
+        setPriority(Thread.MIN_PRIORITY);
+        Renderer renderer = Renderer.getInstance();
+        while(true){
+            if(doRender_){
+                doRender_ = false;
+                renderer.ReRender(true, false);
+            }
+            try{
+                Thread.sleep(10);
+            } catch (Exception e){};
+        }
+    }
 
 }

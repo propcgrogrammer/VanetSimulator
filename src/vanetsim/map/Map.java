@@ -1,9 +1,15 @@
 package vanetsim.map;
 
+import org.codehaus.staxmate.SMInputFactory;
+import org.codehaus.staxmate.SMOutputFactory;
+import org.codehaus.staxmate.in.SMInputCursor;
+import org.codehaus.staxmate.out.SMOutputDocument;
+import org.codehaus.staxmate.out.SMOutputElement;
 import vanetsim.ErrorLog;
 import vanetsim.VanetSimStart;
 import vanetsim.debug.Debug;
 import vanetsim.gui.Renderer;
+import vanetsim.gui.controlpanels.MapSizeDialog;
 import vanetsim.gui.helpers.MouseClickManager;
 import vanetsim.localization.Messages;
 import vanetsim.scenario.RSU;
@@ -17,6 +23,7 @@ import javax.xml.stream.XMLStreamWriter;
 import java.awt.*;
 import java.io.*;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
 import java.util.concurrent.CyclicBarrier;
 import java.util.zip.ZipEntry;
@@ -71,6 +78,9 @@ public class Map {
 
     /** A flag to signal if loading is ready. While loading is in progress, simulation and rendering is not possible. */
     private boolean ready_ = true;
+
+
+    private ArrayList<Street> streets = new ArrayList<Street>();
 
 
     /**
@@ -424,15 +434,179 @@ public class Map {
 
     /**
      * ///////////// 地圖載入與儲存 （start) /////////////
+     * 於2017/11/15_2110 補足load() 和 save() 部分
      */
 
     /**
      * Load a map.
+     * 該load()是由Console模式下載入地圖的呼叫方法，故GUI模式不會使用到
      *
      * @param file	the file to load
      * @param zip	<code>true</code> if the file given is zipped, else <code>false</code>
      */
     public void load(File file, boolean zip){
+
+
+        try{
+            if(!Renderer.getInstance().isConsoleStart())VanetSimStart.setProgressBar(true);
+            String childtype, setting, streetName, streetType, trafficSignalException;
+            int x = 0, y = 0, maxSpeed, isOneway, lanes, newMapWidth, newMapHeight, newRegionWidth, newRegionHeight;
+            Color displayColor;
+            boolean xSet, ySet, trafficSignal;
+            Node startNode, endNode;
+            SMInputCursor childCrsr, nodeCrsr, settingsCrsr, streetCrsr, streetCrsr2;
+            XMLInputFactory factory = XMLInputFactory.newInstance();
+
+            ErrorLog.log(Messages.getString("Map.loadingMap") + file.getName(), 3, getClass().getName(), "loadMap", null); //$NON-NLS-1$ //$NON-NLS-2$
+            // configure some factory options...
+            factory.setProperty(XMLInputFactory.IS_COALESCING, Boolean.TRUE);
+            factory.setProperty(XMLInputFactory.IS_NAMESPACE_AWARE, Boolean.FALSE);
+            factory.setProperty(XMLInputFactory.SUPPORT_DTD, Boolean.FALSE);
+            factory.setProperty(XMLInputFactory.IS_VALIDATING, Boolean.FALSE);
+
+            InputStream filestream;
+            if(zip){
+                filestream = new ZipInputStream(new FileInputStream(file));
+                ((ZipInputStream) filestream).getNextEntry();
+            } else filestream = new FileInputStream(file);
+            XMLStreamReader sr = factory.createXMLStreamReader(filestream);
+            SMInputCursor rootCrsr = SMInputFactory.rootElementCursor(sr);
+            rootCrsr.getNext();
+            if(rootCrsr.getLocalName().toLowerCase().equals("map")){ //$NON-NLS-1$
+                childCrsr = rootCrsr.childElementCursor();
+                childCrsr.getNext();
+                if(childCrsr.getLocalName().toLowerCase().equals("settings")){		// The settings section must be present! //$NON-NLS-1$
+                    newMapWidth = 0;
+                    newMapHeight = 0;
+                    newRegionWidth = 0;
+                    newRegionHeight = 0;
+                    settingsCrsr = childCrsr.childElementCursor();
+                    while (settingsCrsr.getNext() != null){		//parse general settings (size of regions and map)
+                        setting = settingsCrsr.getLocalName().toLowerCase();
+                        if(setting.equals("map_height")){ //$NON-NLS-1$
+                            try{
+                                newMapHeight = Integer.parseInt(settingsCrsr.collectDescendantText(false));
+                            } catch (Exception e) {}
+                        } else if(setting.equals("map_width")){ //$NON-NLS-1$
+                            try{
+                                newMapWidth = Integer.parseInt(settingsCrsr.collectDescendantText(false));
+                            } catch (Exception e) {}
+                        } else if(setting.equals("region_height")){ //$NON-NLS-1$
+                            try{
+                                newRegionWidth = Integer.parseInt(settingsCrsr.collectDescendantText(false));
+                            } catch (Exception e) {}
+                        } else if(setting.equals("region_width")){ //$NON-NLS-1$
+                            try{
+                                newRegionHeight = Integer.parseInt(settingsCrsr.collectDescendantText(false));
+                            } catch (Exception e) {}
+                        }
+                    }
+                    if(newMapWidth > 0 && newMapHeight > 0 && newRegionWidth > 0 && newRegionHeight > 0){		// only continue if settings were all found
+                        if(!Renderer.getInstance().isConsoleStart())VanetSimStart.setProgressBar(false);
+                        CyclicBarrier barrier = new CyclicBarrier(2);
+                        if(!Renderer.getInstance().isConsoleStart()){
+                            new MapSizeDialog(newMapWidth, newMapHeight, newRegionWidth, newRegionHeight, barrier);	//initialize new map
+                            try {
+                                barrier.await();
+                            } catch (Exception e) {}
+                        }
+                        else Map.getInstance().initNewMap(newMapWidth, newMapHeight, newRegionWidth, newRegionHeight);
+                        int addX = (width_ - newMapWidth)/2;
+                        int addY = (height_ - newMapHeight)/2;
+                        if(!Renderer.getInstance().isConsoleStart())VanetSimStart.setProgressBar(true);
+                        while (childCrsr.getNext() != null){
+                            if(childCrsr.getLocalName().toLowerCase().equals("streets")){ //$NON-NLS-1$
+                                streetCrsr = childCrsr.childElementCursor();
+                                while (streetCrsr.getNext() != null){
+                                    if(streetCrsr.getLocalName().toLowerCase().equals("street")){ //$NON-NLS-1$
+                                        streetName = ""; //$NON-NLS-1$
+                                        startNode = null;
+                                        endNode = null;
+                                        trafficSignal = false;
+                                        streetType = "unkown";
+                                        lanes = 0;
+                                        isOneway = 0;
+                                        maxSpeed = 0;
+                                        trafficSignalException = "";
+                                        displayColor = null;
+                                        streetCrsr2 = streetCrsr.childElementCursor();
+                                        while (streetCrsr2.getNext() != null){
+                                            childtype = streetCrsr2.getLocalName().toLowerCase();
+                                            if(childtype.equals("name")){ //$NON-NLS-1$
+                                                streetName = streetCrsr2.collectDescendantText(true);
+                                            } else if(childtype.equals("startnode") || childtype.equals("endnode")){ //$NON-NLS-1$ //$NON-NLS-2$
+                                                xSet = false;
+                                                ySet = false;
+                                                nodeCrsr = streetCrsr2.childElementCursor();
+                                                while (nodeCrsr.getNext() != null){
+                                                    if(nodeCrsr.getLocalName().toLowerCase().equals("x")){ //$NON-NLS-1$
+                                                        try{
+                                                            x = Integer.parseInt(nodeCrsr.collectDescendantText(false)) + addX;
+                                                            xSet = true;
+                                                        } catch (Exception e) {}
+                                                    } else if(nodeCrsr.getLocalName().toLowerCase().equals("y")){ //$NON-NLS-1$
+                                                        try{
+                                                            y = Integer.parseInt(nodeCrsr.collectDescendantText(false)) + addY;
+                                                            ySet = true;
+                                                        } catch (Exception e) {}
+                                                    } else if(nodeCrsr.getLocalName().toLowerCase().equals("trafficsignal")){ //$NON-NLS-1$
+                                                        if(nodeCrsr.collectDescendantText(false).toLowerCase().equals("true")) trafficSignal = true;
+                                                        else trafficSignal = false;
+                                                    } else if(nodeCrsr.getLocalName().toLowerCase().equals("trafficsignalexceptions")){ //$NON-NLS-1$
+                                                        trafficSignalException = nodeCrsr.collectDescendantText(true);
+                                                    }
+                                                }
+                                                if(xSet && ySet){
+                                                    if(childtype.equals("startnode")){
+                                                        startNode = new Node(x, y, trafficSignal); //$NON-NLS-1$
+                                                        if(!trafficSignalException.equals(""))startNode.addSignalExceptionsOfString(trafficSignalException);
+                                                    }
+                                                    else {
+                                                        endNode = new Node(x, y, trafficSignal);
+                                                        if(!trafficSignalException.equals(""))endNode.addSignalExceptionsOfString(trafficSignalException);
+                                                    }
+                                                }
+                                            } else if(childtype.equals("oneway")){ //$NON-NLS-1$
+                                                if(streetCrsr2.collectDescendantText(false).toLowerCase().equals("true")) isOneway = 1; //$NON-NLS-1$
+                                                else isOneway = 0;
+                                            } else if(childtype.equals("streettype")){ //$NON-NLS-1$
+                                                streetType = streetCrsr2.collectDescendantText(true);
+                                            } else if(childtype.equals("lanes")){ //$NON-NLS-1$
+                                                try{
+                                                    lanes = Integer.parseInt(streetCrsr2.collectDescendantText(false));
+                                                } catch (Exception e) {}
+                                            } else if(childtype.equals("speed")){ //$NON-NLS-1$
+                                                try{
+                                                    maxSpeed = Integer.parseInt(streetCrsr2.collectDescendantText(false));
+                                                } catch (Exception e) {}
+                                            } else if(childtype.equals("color")){ //$NON-NLS-1$
+                                                try{
+                                                    displayColor = new Color(Integer.parseInt(streetCrsr2.collectDescendantText(false)));
+                                                } catch (Exception e) {}
+                                            } else ErrorLog.log(Messages.getString("Map.unknownElement"), 3, getClass().getName(), "load", null); //$NON-NLS-1$ //$NON-NLS-2$
+                                        }
+                                        if(maxSpeed > 0 && startNode != null && endNode != null && displayColor != null && !streetName.equals("")){ //$NON-NLS-1$
+                                            startNode = addNode(startNode);
+                                            endNode = addNode(endNode);
+                                            Street street = new Street(streetName, startNode, endNode, streetType, isOneway, lanes, displayColor, getRegionOfPoint(startNode.getX(), startNode.getY()), maxSpeed);
+                                            streets.add(street);
+                                            addStreet(street);
+                                        }
+                                    } else ErrorLog.log(Messages.getString("Map.unknownElementOnlyStreet"), 3, getClass().getName(), "load", null); //$NON-NLS-1$ //$NON-NLS-2$
+                                }
+                            } else ErrorLog.log(Messages.getString("Map.unknownElementOnlyStreets"), 3, getClass().getName(), "load", null); //$NON-NLS-1$ //$NON-NLS-2$
+                        }
+                    } else ErrorLog.log(Messages.getString("Map.settingsIncomplete"), 7, getClass().getName(), "load", null); //$NON-NLS-1$ //$NON-NLS-2$
+                } else ErrorLog.log(Messages.getString("Map.settingsMissing"), 7, getClass().getName(), "load", null); //$NON-NLS-1$ //$NON-NLS-2$
+            } else ErrorLog.log(Messages.getString("Map.wrongRoot"), 7, getClass().getName(), "load", null); //$NON-NLS-1$ //$NON-NLS-2$
+
+            sr.close();
+            filestream.close();
+        } catch (Exception e) {ErrorLog.log(Messages.getString("Map.errorLoading"), 7, getClass().getName(), "load", e);} //$NON-NLS-1$ //$NON-NLS-2$
+        if(!Renderer.getInstance().isConsoleStart())VanetSimStart.setProgressBar(false);
+        signalMapLoaded();
+        ErrorLog.log(Messages.getString("Map.loadingFinished"), 3, getClass().getName(), "load", null); //$NON-NLS-1$ //$NON-NLS-2$
+
 
     }
 
@@ -444,6 +618,80 @@ public class Map {
      * @param zip	if <code>true</code>, file is saved in a compressed zip file (extension .zip is added to <code>file</code>!). If <code>false</code>, no compression is made.
      */
     public void save(File file, boolean zip){
+
+
+        try{
+            if(!Renderer.getInstance().isConsoleStart())VanetSimStart.setProgressBar(true);
+            ErrorLog.log(Messages.getString("Map.savingMap") + file.getName(), 3, getClass().getName(), "save", null); //$NON-NLS-1$ //$NON-NLS-2$
+            int i, j, k;
+            Street[] streetsArray;
+            Street street;
+            SMOutputElement level1, level2;
+
+            OutputStream filestream;
+            if(zip){
+                filestream = new ZipOutputStream(new FileOutputStream(file + ".zip")); //$NON-NLS-1$
+                ((ZipOutputStream) filestream).putNextEntry(new ZipEntry(file.getName()));
+            } else filestream = new FileOutputStream(file);
+            XMLStreamWriter xw = XMLOutputFactory.newInstance().createXMLStreamWriter(filestream);
+            SMOutputDocument doc = SMOutputFactory.createOutputDocument(xw);
+            doc.setIndentation("\n\t\t\t\t\t\t\t\t", 2, 1); ;  //$NON-NLS-1$
+            doc.addComment("Generated on " + new SimpleDateFormat("dd.MM.yyyy HH:mm:ss").format(new Date())); //$NON-NLS-1$ //$NON-NLS-2$
+            doc.addComment("This file may contain data from the OpenStreetMap project which is licensed under the Creative Commons Attribution-ShareAlike 2.0 license."); //$NON-NLS-1$
+
+            SMOutputElement root = doc.addElement("Map");			 //$NON-NLS-1$
+            level1 = root.addElement("Settings"); //$NON-NLS-1$
+            level2 = level1.addElement("Map_height"); //$NON-NLS-1$
+            level2.addValue(height_);
+            level2 = level1.addElement("Map_width"); //$NON-NLS-1$
+            level2.addValue(width_);
+            level2 = level1.addElement("Region_height"); //$NON-NLS-1$
+            level2.addValue(regionHeight_);
+            level2 = level1.addElement("Region_width"); //$NON-NLS-1$
+            level2.addValue(regionWidth_);
+            SMOutputElement streets = root.addElement("Streets");			 //$NON-NLS-1$
+
+            for(i = 0; i < regionCountX_; ++i){
+                for(j = 0; j < regionCountY_; ++j){
+                    streetsArray = regions_[i][j].getStreets();
+                    for(k = 0; k < streetsArray.length; ++k){
+                        street = streetsArray[k];
+                        if(street.getMainRegion() == regions_[i][j]){	//as a street can be in multiple regions only output it in the "main" region!
+                            level1 = streets.addElement("Street"); //$NON-NLS-1$
+                            level1.addElement("Name").addCharacters(street.getName()); //$NON-NLS-1$
+                            level2 = level1.addElement("StartNode"); //$NON-NLS-1$
+                            level2.addElement("x").addValue(street.getStartNode().getX());; //$NON-NLS-1$
+                            level2.addElement("y").addValue(street.getStartNode().getY()); //$NON-NLS-1$
+                            if(street.getStartNode().isHasTrafficSignal_()) {
+                                level2.addElement("trafficSignal").addCharacters("true");
+                                if(street.getStartNode().hasNonDefaultSettings()) level2.addElement("TrafficSignalExceptions").addCharacters(street.getStartNode().getSignalExceptionsInString());
+                            }
+                            else level2.addElement("trafficSignal").addCharacters("false");
+                            level2 = level1.addElement("EndNode"); //$NON-NLS-1$
+                            level2.addElement("x").addValue(street.getEndNode().getX()); //$NON-NLS-1$
+                            level2.addElement("y").addValue(street.getEndNode().getY()); //$NON-NLS-1$
+                            if(street.getEndNode().isHasTrafficSignal_()) {
+                                level2.addElement("trafficSignal").addCharacters("true");
+                                if(street.getEndNode().hasNonDefaultSettings()) level2.addElement("TrafficSignalExceptions").addCharacters(street.getEndNode().getSignalExceptionsInString());
+                            }
+                            else level2.addElement("trafficSignal").addCharacters("false");
+                            if(street.isOneway()) level1.addElement("Oneway").addCharacters("true"); //$NON-NLS-1$ //$NON-NLS-2$
+                            else level1.addElement("Oneway").addCharacters("false"); //$NON-NLS-1$ //$NON-NLS-2$
+                            level1.addElement("StreetType").addCharacters(street.getStreetType_()); //$NON-NLS-1$
+                            level1.addElement("Lanes").addValue(street.getLanesCount()); //$NON-NLS-1$
+                            level1.addElement("Speed").addValue(street.getSpeed()); //$NON-NLS-1$
+                            level1.addElement("Color").addValue(street.getDisplayColor().getRGB()); //$NON-NLS-1$
+                        }
+                    }
+                }
+            }
+
+            doc.closeRoot();
+            xw.close();
+            filestream.close();
+        }catch (Exception e) {ErrorLog.log(Messages.getString("Map.errorSavingMap") , 6, getClass().getName(), "save", e);} //$NON-NLS-1$ //$NON-NLS-2$
+        if(!Renderer.getInstance().isConsoleStart())VanetSimStart.setProgressBar(false);
+
 
     }
 

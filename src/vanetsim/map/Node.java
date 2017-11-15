@@ -62,24 +62,54 @@ public class Node {
         ++counter_;
     }
 
-    public boolean isHasTrafficSignal_() {
-        return hasTrafficSignal_;
-    }
-
-
+    /**
+     * ------------- Junction 相關 ---------------
+     * */
 
     /**
      * Calculates if this is a junction and the priorities of all possible ways which go over this junction.
      */
     public void calculateJunction(){
         /** 待新增 */
+        /** 在該Node區塊內，若小於3個進出該Node的Street，代表沒有相交叉 */
+        if(crossingStreets_.length < 3) junction_ = null;	//if only 2 incomings, it's a street which is just continuing (or the end of a street)!
+
     }
 
     /**
-     * @return the trafficLight_
+     * Returns the junction object associated with this node or <code>null</code> if this is not a junction.
+     *
+     * @return the junction or <code>null</code> if this is not a junction
      */
-    public TrafficLight getTrafficLight_() {
-        return trafficLight_;
+    public Junction getJunction(){
+        return junction_;
+    }
+
+    /**
+     * ------------- Junction 相關 ---------------
+     * */
+
+
+
+
+
+    /**
+     * ------------- Street 相關 ---------------
+     * */
+
+    /**
+     * Check if a Traffic Signal has non-default settings
+     *
+     * @return true if settings are non-default
+     */
+    public boolean hasNonDefaultSettings() {
+        if(streetHasException_ == null) return false;
+
+        boolean tmpReturn = false;
+
+        for(int i : streetHasException_) if(i != 1) tmpReturn = true;
+
+        return tmpReturn;
     }
 
     /**
@@ -91,15 +121,121 @@ public class Node {
         return crossingStreets_.length;
     }
 
+    /**
+     * Gets an array of the outgoing streets of this node. You will always get an array (never <code>null</code>)
+     * but it might have zero size.
+     *
+     * @return the array
+     */
+    public Street[] getOutgoingStreets() {
+        return outgoingStreets_;
+    }
+
 
     /**
-     * Returns the junction object associated with this node or <code>null</code> if this is not a junction.
+     * Adds an outgoing street. If the array already contains the street, nothing is done.
+     * Note that this operation is not thread-safe.
      *
-     * @return the junction or <code>null</code> if this is not a junction
+     * @param street The outgoing street to add.
      */
-    public Junction getJunction(){
-        return junction_;
+    public void addOutgoingStreet(Street street) {
+        boolean found = false;
+        for(int i = 0; i < outgoingStreets_.length; ++i){
+            if(outgoingStreets_[i] == street){
+                found = true;
+                break;
+            }
+        }
+        if(!found){
+            Street[] newArray = new Street[outgoingStreets_.length+1];
+            System.arraycopy (outgoingStreets_,0,newArray,0,outgoingStreets_.length);
+            newArray[outgoingStreets_.length] = street;
+            outgoingStreets_ = newArray;
+        }
     }
+
+    /**
+     * Adds a crossing street. If the array already contains the street, nothing is done.
+     * Note that this operation is not thread-safe.
+     *
+     * @param street	the crossing street to add.
+     */
+    public void addCrossingStreet(Street street) {
+        boolean found = false;
+        for(int i = 0; i < crossingStreets_.length; ++i){
+            if(crossingStreets_[i] == street){
+                found = true;
+                break;
+            }
+        }
+        if(!found){
+            Street[] newArray = new Street[crossingStreets_.length+1];
+            System.arraycopy (crossingStreets_,0,newArray,0,crossingStreets_.length);
+            newArray[crossingStreets_.length] = street;
+            crossingStreets_ = newArray;
+        }
+    }
+
+    /**
+     * ------------- Street 相關 ---------------
+     * */
+
+
+
+    /**
+     * ------------- TrafficLight 相關 ---------------
+     * */
+
+
+    public boolean isHasTrafficSignal_() {
+        return hasTrafficSignal_;
+    }
+
+    /**
+     * @return the trafficLight_
+     */
+    public TrafficLight getTrafficLight_() {
+        return trafficLight_;
+    }
+
+    /**
+     * Fill Exception Array of a String.
+     */
+    public void addSignalExceptionsOfString(String arrayString) {
+        String[] tmpArray = arrayString.split(":");
+        streetHasException_ = new int[tmpArray.length];
+
+        for(int i = 0; i < tmpArray.length; i++) streetHasException_[i] = Integer.parseInt(tmpArray[i]);
+    }
+
+    /**
+     * Write exception array in one string. Please check if Signal has exceptions before using.
+     *
+     * @return string with exceptions
+     */
+    public String getSignalExceptionsInString() {
+        String tmpReturn = "";
+
+        for(int i : streetHasException_) tmpReturn += i + ":";
+
+        if(tmpReturn.length() > 0) tmpReturn = tmpReturn.substring(0, tmpReturn.length() - 1);
+
+        return tmpReturn;
+    }
+
+    /**
+     * ------------- TrafficLight 相關 ---------------
+     * */
+
+
+
+
+
+
+
+
+
+
 
     /**
      * The mixZoneRadius
@@ -127,6 +263,8 @@ public class Node {
     public Region getRegion() {
         return region_;
     }
+
+
 
 
     public void setEncryptedRSU_(RSU encryptedRSU_) {
@@ -181,15 +319,7 @@ public class Node {
         return encryptedRSU_;
     }
 
-    /**
-     * Gets an array of the outgoing streets of this node. You will always get an array (never <code>null</code>)
-     * but it might have zero size.
-     *
-     * @return the array
-     */
-    public Street[] getOutgoingStreets() {
-        return outgoingStreets_;
-    }
+
 
     /**
      * Sets the region in which this node is found.

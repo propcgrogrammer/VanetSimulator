@@ -250,7 +250,9 @@ public final class EditControlPanel extends JPanel implements ActionListener {
      */
     public void actionPerformed(ActionEvent e){
         /** 待新增 */
-        /** 2017/10/24_1636 新增 */
+        /** 2017/10/24_1636 新增
+         *  2017/11/15_2131 全部新增完成
+         * */
         String command = e.getActionCommand();
         if ("savemap".equals(command)){ //$NON-NLS-1$
             VanetSimStart.getMainControlPanel().changeFileChooser(false, true, false);
@@ -291,9 +293,151 @@ public final class EditControlPanel extends JPanel implements ActionListener {
                 };
                 new Thread(job).start();
             }
+        }else if ("newmap".equals(command)){ //$NON-NLS-1$
+            CyclicBarrier barrier = new CyclicBarrier(2);
+            new MapSizeDialog(100000, 100000, 50000, 50000, barrier);
+            try {
+                barrier.await();
+            } catch (Exception e2) {}
+            enableEdit_.setSelected(false);
+            disableEdit_.setSelected(true);
+            Map.getInstance().signalMapLoaded();
+        } else if ("newscenario".equals(command)){ //$NON-NLS-1$
+            Scenario.getInstance().initNewScenario();
+            Scenario.getInstance().setReadyState(true);
+            VanetSimStart.getMainControlPanel().getEditPanel().getEditEventPanel().updateList();
+            Renderer.getInstance().ReRender(false, false);
+        } else if ("openTypeDialog".equals(command)){ //$NON-NLS-1$
+           // new VehicleTypeDialog();
+        } else if ("enableEdit".equals(command)){ //$NON-NLS-1$
+            if(Renderer.getInstance().getTimePassed() > 0){
+                enableEdit_.setSelected(false);
+                disableEdit_.setSelected(true);
+                Renderer.getInstance().setAutoAddMixZones(editMixZonePanel_.getAutoAddMixZones().isSelected());
+                ErrorLog.log(Messages.getString("EditControlPanel.editingOnlyOnCleanMap"), 6, this.getName(), "enableEdit", null); //$NON-NLS-1$ //$NON-NLS-2$
+            } else {
+                editMode_ = true;
+                if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.street"))){ //$NON-NLS-1$
+                    Renderer.getInstance().setHighlightNodes(true);
+                    Renderer.getInstance().ReRender(true, false);
+                } else if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.event"))){ //$NON-NLS-1$
+                    Renderer.getInstance().setShowAllBlockings(true);
+                    Renderer.getInstance().ReRender(true, false);
+                } else if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.privacy"))){ //$NON-NLS-1$
+                    Renderer.getInstance().setShowMixZones(true);
+                    Renderer.getInstance().setHighlightNodes(true);
+                    Renderer.getInstance().ReRender(true, false);
+                    editSilentPeriodPanel_.loadAttributes();
+                } else if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.rsus"))){ //$NON-NLS-1$
+                    Renderer.getInstance().setShowRSUs(true);
+                    Renderer.getInstance().setHighlightCommunication(true);
+                    Renderer.getInstance().ReRender(true, false);
+                } else if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.attackers"))){ //$NON-NLS-1$
+                    Renderer.getInstance().setShowVehicles(true);
+                    Renderer.getInstance().setShowAttackers(true);
+                    Renderer.getInstance().setShowMixZones(true);
+                    Renderer.getInstance().setHighlightCommunication(true);
+                    Renderer.getInstance().ReRender(true, false);
+                    editLogControlPanel_.refreshGUI();
+                } else if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.vehicles"))){ //$NON-NLS-1$
+                    Renderer.getInstance().setShowVehicles(true);
+                    Renderer.getInstance().ReRender(true, false);
+                } else if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.trafficLights"))){ //$NON-NLS-1$
+                    Renderer.getInstance().setHighlightNodes(true);
+                    Renderer.getInstance().ReRender(false, false);
+                } else if(((String)editChoice_.getSelectedItem()).equals(Messages.getString("EditControlPanel.logs"))){ //$NON-NLS-1$
+
+                    Renderer.getInstance().ReRender(false, false);
+                }
+                editPanel_.setVisible(true);
+            }
+        } else if ("disableEdit".equals(command)){ //$NON-NLS-1$
+            editMode_ = false;
+            editPanel_.setVisible(false);
+            Renderer.getInstance().setHighlightNodes(false);
+            Renderer.getInstance().setShowAllBlockings(false);
+            //	Renderer.getInstance().setShowVehicles(false);
+            Renderer.getInstance().setShowVehicles(true);
+            Renderer.getInstance().setShowMixZones(false);
+            Renderer.getInstance().setShowRSUs(false);
+            Renderer.getInstance().setShowAttackers(false);
+            Renderer.getInstance().setHighlightCommunication(false);
+            //Renderer.getInstance().setShowAttackers(false);
+            Vehicle markedVehicle = Renderer.getInstance().getMarkedVehicle();
+            Renderer.getInstance().setMarkedVehicle(markedVehicle);
+            Renderer.getInstance().setMarkedJunction_(null);
+            Renderer.getInstance().ReRender(true, false);
+            setMaxMixZoneRadius();
+            editSilentPeriodPanel_.saveAttributes();
+        } else if ("comboBoxChanged".equals(command)){ //$NON-NLS-1$
+            String item = (String)editChoice_.getSelectedItem();
+            CardLayout cl = (CardLayout)(editCardPanel_.getLayout());
+            Renderer.getInstance().setHighlightNodes(false);
+            Renderer.getInstance().setShowAllBlockings(false);
+            Renderer.getInstance().setShowVehicles(false);
+            Renderer.getInstance().setShowMixZones(false);
+            Renderer.getInstance().setShowRSUs(false);
+            Renderer.getInstance().setHighlightCommunication(false);
+            Renderer.getInstance().setShowAttackers(false);
+            Renderer.getInstance().setMarkedJunction_(null);
+            //Renderer.getInstance().setShowAttackers(false);
+            Renderer.getInstance().setMarkedVehicle(null);
+            Renderer.getInstance().ReRender(true, false);
+            if(Messages.getString("EditControlPanel.street").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "street"); //$NON-NLS-1$
+                Renderer.getInstance().setHighlightNodes(true);
+                Renderer.getInstance().setShowAllBlockings(false);
+                Renderer.getInstance().ReRender(true, false);
+            } else if(Messages.getString("EditControlPanel.vehicles").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "vehicles"); //$NON-NLS-1$
+                Renderer.getInstance().setHighlightNodes(false);
+                Renderer.getInstance().setShowAllBlockings(false);
+                Renderer.getInstance().setShowVehicles(true);
+                Renderer.getInstance().ReRender(true, false);
+
+                //reset the text of the add vehicle note
+                editOneVehiclePanel_.getAddNote().setForeground(Color.black);
+                editOneVehiclePanel_.getAddNote().setText(Messages.getString("EditOneVehicleControlPanel.noteAdd"));
+                stateChanged(null);
+            } else if(Messages.getString("EditControlPanel.privacy").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "privacy"); //$NON-NLS-1$
+                Renderer.getInstance().setHighlightNodes(true);
+                Renderer.getInstance().setShowAllBlockings(false);
+                Renderer.getInstance().setShowMixZones(true);
+                Renderer.getInstance().ReRender(true, false);
+                editSilentPeriodPanel_.loadAttributes();
+            } else if(Messages.getString("EditControlPanel.rsus").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "rsus"); //$NON-NLS-1$
+                Renderer.getInstance().setShowRSUs(true);
+                Renderer.getInstance().setHighlightCommunication(true);
+                Renderer.getInstance().ReRender(true, false);
+            } else if(Messages.getString("EditControlPanel.attackers").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "attackers"); //$NON-NLS-1$
+                Renderer.getInstance().setShowMixZones(true);
+                Renderer.getInstance().setShowVehicles(true);
+                Renderer.getInstance().setShowAttackers(true);
+                Renderer.getInstance().setHighlightCommunication(true);
+                Renderer.getInstance().ReRender(true, false);
+            } else if(Messages.getString("EditControlPanel.event").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "event"); //$NON-NLS-1$
+                Renderer.getInstance().setHighlightNodes(false);
+                Renderer.getInstance().setShowAllBlockings(true);
+                Renderer.getInstance().ReRender(true, false);
+            } else if(Messages.getString("EditControlPanel.settings").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "settings"); //$NON-NLS-1$
+                Renderer.getInstance().setHighlightNodes(false);
+                Renderer.getInstance().setShowAllBlockings(false);
+                Renderer.getInstance().ReRender(true, false);
+            } else if(Messages.getString("EditControlPanel.trafficLights").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "trafficLights"); //$NON-NLS-1$
+                Renderer.getInstance().setHighlightNodes(true);
+                Renderer.getInstance().ReRender(true, false);
+            } else if(Messages.getString("EditControlPanel.logs").equals(item)){	//$NON-NLS-1$
+                cl.show(editCardPanel_, "logs"); //$NON-NLS-1$
+                editLogControlPanel_.refreshGUI();
+                Renderer.getInstance().ReRender(true, false);
+            }
         }
-
-
 
     }
 

@@ -56,6 +56,7 @@ public class ThreadInfo extends Thread{
     {
         if(thread == null) return false;
         this.threadArrayList.add(thread);
+
         if(this.threadArrayList.contains(thread)) return true;
         return false;
     }
