@@ -112,8 +112,8 @@ public class EditTrafficLightsControlPanel extends JPanel implements ActionListe
      */
     public EditTrafficLightsControlPanel() {
 
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "EditTrafficLightsControlPanel()", true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "EditTrafficLightsControlPanel()", Debug.ISLOGGED);
 
         setLayout(new GridBagLayout());
 

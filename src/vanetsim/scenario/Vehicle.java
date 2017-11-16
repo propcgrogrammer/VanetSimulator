@@ -426,6 +426,7 @@ public class Vehicle extends LaneObject{
         else return VanetSimStart.getMainControlPanel().getReportingPanel();
     }
 
+
     /**
      * Indicates if this vehicle may be reset and reused.
      *

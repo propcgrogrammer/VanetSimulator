@@ -249,6 +249,9 @@ public final class SimulateControlPanel extends JPanel implements ActionListener
      * @param zoom the new zoom value
      */
     public void setZoomValue(int zoom){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"setZoomValue(int zoom)",Debug.ISLOGGED);
+
         dontReRenderZoom_ = true;
         zoomSlider_.setValue(zoom);
     }

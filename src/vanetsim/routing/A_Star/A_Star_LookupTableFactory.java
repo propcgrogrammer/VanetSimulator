@@ -1,5 +1,6 @@
 package vanetsim.routing.A_Star;
 
+import vanetsim.debug.Debug;
 import vanetsim.map.Node;
 
 import java.util.ArrayDeque;
@@ -57,6 +58,9 @@ public final class A_Star_LookupTableFactory{
 	 * Clear the cached versions. This should be done on map reload to free otherwise unnecessarily wasted memory.
 	 */
 	public static synchronized void clear(){
+
+		Debug.callFunctionInfo("A_Star_LookupTableFactory","clear()",Debug.ISLOGGED);
+
 		table_.clear();
 		counter_.clear();
 	}

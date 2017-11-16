@@ -1,7 +1,11 @@
 package vanetsim.map;
 
 
+import vanetsim.debug.Debug;
 import vanetsim.scenario.RSU;
+
+import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * A node on the map.
@@ -47,6 +51,33 @@ public class Node {
     /** Traffic Light Collections */
     private int[] streetHasException_ = null;
 
+
+    /**
+     * Instantiates a new node.
+     *
+     * @param x the x coordinate
+     * @param y the y coordinate
+     */
+    public Node(int x, int y) {
+
+        Debug.whereru(this.getClass().getName(), true);
+        Debug.callFunctionInfo(this.getClass().getName(), "Node(int x, int y)", true);
+
+        x_ = x;
+        y_ = y;
+        hasTrafficSignal_ = false;
+        nodeID_ = counter_;
+        ++counter_;
+
+        HashMap map = new HashMap<String, String>();
+        map.put("NodeID",String.valueOf(nodeID_));
+        map.put("x",String.valueOf(x_));
+        map.put("y",String.valueOf(y_));
+        map.put("TrafficSignal",String.valueOf(hasTrafficSignal_));
+
+        Debug.debugInfo(map,Debug.ISLOGGED);
+
+    }
     /**
      * Instantiates a new node.
      *
@@ -60,6 +91,22 @@ public class Node {
         hasTrafficSignal_ = hasTrafficSignal;
         nodeID_ = counter_;
         ++counter_;
+
+        HashMap map = new HashMap<String, String>();
+        map.put("NodeID",String.valueOf(nodeID_));
+        map.put("x",String.valueOf(x_));
+        map.put("y",String.valueOf(y_));
+        map.put("TrafficSignal",String.valueOf(hasTrafficSignal_));
+
+        Debug.debugInfo(map,Debug.ISLOGGED);
+    }
+
+    /**
+     * Resets the node ID counter so that newly created nodes begin with an ID of 0.
+     */
+    public static void resetNodeID(){
+
+        counter_ = 0;
     }
 
     /**
@@ -70,9 +117,217 @@ public class Node {
      * Calculates if this is a junction and the priorities of all possible ways which go over this junction.
      */
     public void calculateJunction(){
-        /** 待新增 */
+        /** 待新增
+         *  於 2017/11/16_1633 完整實作
+         * */
         /** 在該Node區塊內，若小於3個進出該Node的Street，代表沒有相交叉 */
         if(crossingStreets_.length < 3) junction_ = null;	//if only 2 incomings, it's a street which is just continuing (or the end of a street)!
+        else {
+
+            int size = crossingStreets_.length;
+
+            //check if there are at least 2 incoming streets!
+            Street tmpStreet;
+            int i, count = 0;
+            for(i = 0; i < size; ++i){
+                tmpStreet = crossingStreets_[i];
+                if(!tmpStreet.isOneway() || tmpStreet.getEndNode() == this) ++count;
+            }
+            if(count < 2) junction_ = null;
+            else {
+                //A real junction which means quite a lot of work.
+                ArrayList<Street> priorityStreets = new ArrayList<Street>();
+                String[] namesArray = new String[size];		//basic arrays and bruteforce-search is best here because there are normally only about 3-4 streets!
+                int[] foundCount = new int[size];
+                int[] maxSpeedArray = new int[size];
+                int j = 0;
+                count = 0;
+                boolean alreadyExisted, foundContinuing = false;
+                ArrayList<Node> sourceNodes = new ArrayList<Node>();
+                //Step 1: Try to find continuing streets and sourceNodes
+                for(i = 0; i < size; ++i){
+                    tmpStreet = crossingStreets_[i];
+                    if(!tmpStreet.isOneway()){	//twowayStreet => always a source to add
+                        if(tmpStreet.getStartNode() != this) sourceNodes.add(tmpStreet.getStartNode());
+                        else sourceNodes.add(tmpStreet.getEndNode());
+                    } else if (tmpStreet.getStartNode() != this) sourceNodes.add(tmpStreet.getStartNode());		//onewayStreet: only add if it is really incoming!
+                    alreadyExisted = false;
+                    for(j = 0; j < count; ++j){		//check if we already found this street
+                        if (namesArray[j].equals(tmpStreet.getName())){
+                            alreadyExisted = true;
+                            foundContinuing = true;
+                            ++foundCount[j];
+                            if(maxSpeedArray[j] < tmpStreet.getSpeed()) maxSpeedArray[j] = tmpStreet.getSpeed();
+                        }
+                    }
+                    if(!alreadyExisted){		//didn't exist previously
+                        namesArray[count] = tmpStreet.getName();
+                        foundCount[count] = 1;
+                        maxSpeedArray[count] = tmpStreet.getSpeed();
+                        ++count;
+                    }
+                }
+                //Step 2: Find the priority streets based on 2 rules.
+                //1. rule: try to find a street which is continuing (has same name) and take the one with the highest speed if there is more than one
+                if(foundContinuing){
+                    int k = -1, maxSpeed = 0;
+                    for(i = 0; i < count; ++i){
+                        if(foundCount[i] > 1 && maxSpeedArray[i] > maxSpeed){
+                            k = i;
+                            maxSpeed = maxSpeedArray[i];
+                        }
+                    }
+                    if(k != -1){
+                        for(i = 0; i < size; ++i){
+                            tmpStreet = crossingStreets_[i];
+                            if(tmpStreet.getName().equals(namesArray[k])) priorityStreets.add(tmpStreet);
+                        }
+                    }
+                    //2. rule: take the two streets with highest speed. If two of the three highest are oneway, add a third one.
+                } else {
+                    Street fastestStreet = null, secondFastestStreet = null, thirdFastestStreet = null;
+                    int fastestSpeed = 0, secondFastestSpeed = 0, thirdFastestSpeed = 0;
+                    for(i = 0; i < size; ++i){
+                        tmpStreet = crossingStreets_[i];
+                        if(tmpStreet.getSpeed() > fastestSpeed){
+                            thirdFastestSpeed = secondFastestSpeed;
+                            thirdFastestStreet = secondFastestStreet;
+                            secondFastestSpeed = fastestSpeed;
+                            secondFastestStreet = fastestStreet;
+                            fastestSpeed = tmpStreet.getSpeed();
+                            fastestStreet = tmpStreet;
+                        } else if(tmpStreet.getSpeed() > secondFastestSpeed){
+                            secondFastestSpeed = fastestSpeed;
+                            secondFastestStreet = fastestStreet;
+                            fastestSpeed = tmpStreet.getSpeed();
+                            fastestStreet = tmpStreet;
+                        } else if(tmpStreet.getSpeed() > thirdFastestSpeed){
+                            thirdFastestSpeed = tmpStreet.getSpeed();
+                            thirdFastestStreet = secondFastestStreet;
+                        }
+                    }
+                    priorityStreets.add(fastestStreet);
+                    priorityStreets.add(secondFastestStreet);
+                    if(thirdFastestStreet != null && ((fastestStreet.isOneway() && secondFastestStreet.isOneway()) || (secondFastestStreet.isOneway() && thirdFastestStreet != null && thirdFastestStreet.isOneway()) || (fastestStreet.isOneway() && thirdFastestStreet != null && thirdFastestStreet.isOneway()))){
+                        priorityStreets.add(thirdFastestStreet);
+                    }
+                }
+                //we might have three streets now but three are only valid if there's one incoming oneway, one outgoing oneway and one twoway street. Else only take two.
+                count = 2;
+                if(priorityStreets.size() > 2){
+                    Street twoWayStreet = null;
+                    Street firstOnewayStreet = null;
+                    Street secondOnewayStreet = null;
+                    for(i = 0; i < 3; ++i){
+                        if(priorityStreets.get(i).isOneway()){
+                            if(firstOnewayStreet == null) firstOnewayStreet = priorityStreets.get(i);
+                            else if(secondOnewayStreet == null) secondOnewayStreet = priorityStreets.get(i);
+                        } else if(twoWayStreet == null) twoWayStreet = priorityStreets.get(i);
+                    }
+                    if(twoWayStreet != null && firstOnewayStreet != null && secondOnewayStreet != null){
+                        if((firstOnewayStreet.getEndNode() == this && secondOnewayStreet.getEndNode() != this) || (firstOnewayStreet.getEndNode() != this && secondOnewayStreet.getEndNode() == this)) count = 3;
+                    }
+                }
+                while(priorityStreets.size() > count) priorityStreets.remove(priorityStreets.size()-1);	//trim priorityStreets to correct size
+                size = sourceNodes.size();
+                Node tmpNode, priorityEndNode, turnOffNode;
+                Street sourceStreet = null, targetStreet;
+                Street priorityEndStreet;
+                //Step 3: Now create the junction and fill it's hashmaps with priorities for every possible connection
+                junction_ = new Junction(this, priorityStreets.toArray(new Street[1]));
+                for(i = 0; i < size; ++i){
+                    tmpNode = sourceNodes.get(i);
+                    //find source street
+                    for(j = 0; j < crossingStreets_.length; ++j){
+                        if(crossingStreets_[j].getStartNode() == tmpNode || crossingStreets_[j].getEndNode() == tmpNode){
+                            sourceStreet = crossingStreets_[j];
+                            break;
+                        }
+                    }
+                    //find end street and end node of priority street if source is already a priority street
+                    priorityEndNode = null;
+                    priorityEndStreet = null;
+                    if(count == 2){
+                        for(j = 0; j < count; ++j){
+                            if(priorityStreets.get(j) != sourceStreet) priorityEndStreet = priorityStreets.get(j);
+                        }
+                    } else {	//three priority streets with 2 oneways and 1 twoway
+                        if(!sourceStreet.isOneway()){	//the twoway street is the source
+                            for(j = 0; j < count; ++j){
+                                if(priorityStreets.get(j) != sourceStreet && priorityStreets.get(j).getStartNode() == this){	//take the outgoing oneway street
+                                    priorityEndStreet = priorityStreets.get(j);
+                                }
+                            }
+                        } else {	//the incoming oneway street is the source
+                            for(j = 0; j < count; ++j){
+                                if(!priorityStreets.get(j).isOneway()){	//take the one and only twoway street
+                                    priorityEndStreet = priorityStreets.get(j);
+                                }
+                            }
+                        }
+                    }
+                    if(priorityEndStreet.getStartNode() != this) priorityEndNode = priorityEndStreet.getStartNode();
+                    else priorityEndNode = priorityEndStreet.getEndNode();
+
+                    //look through all outgoing streets
+                    for(j = 0; j < outgoingStreets_.length; ++j){
+                        targetStreet = outgoingStreets_[j];
+                        if(targetStreet != sourceStreet){
+                            if(targetStreet.getStartNode() != this) turnOffNode = targetStreet.getStartNode();
+                            else turnOffNode = targetStreet.getEndNode();
+                            if(priorityStreets.contains(sourceStreet)){
+                                if(targetStreet == priorityEndStreet){
+                                    //add to highest prio
+                                    junction_.addJunctionRule(tmpNode, turnOffNode, 1);
+                                } else if(isLineRight(tmpNode.getX(), tmpNode.getY(), priorityEndNode.getX(), priorityEndNode.getY(), turnOffNode.getX(), turnOffNode.getY())){
+                                    //add to highest prio as a right turnoff
+                                    junction_.addJunctionRule(tmpNode, turnOffNode, 2);
+                                } else {
+                                    //add to middle prio
+                                    junction_.addJunctionRule(tmpNode, turnOffNode, 3);
+                                }
+                            } else {
+                                if(priorityStreets.contains(targetStreet)){		// target is a priority street. Find the priority street belonging to this
+                                    int k;
+                                    if(count == 2){
+                                        for(k = 0; k < count; ++k){
+                                            if(priorityStreets.get(k) != targetStreet) priorityEndStreet = priorityStreets.get(k);
+                                        }
+                                    } else {	//three priority streets with 2 oneways and 1 twoway
+                                        if(!sourceStreet.isOneway()){	//the twoway street is the source
+                                            for(k = 0; k < count; ++k){
+                                                if(priorityStreets.get(k) != targetStreet && priorityStreets.get(k).getStartNode() == this){	//take the outgoing oneway street
+                                                    priorityEndStreet = priorityStreets.get(k);
+                                                }
+                                            }
+                                        } else {	//the incoming oneway street is the source
+                                            for(k = 0; k < count; ++k){
+                                                if(!priorityStreets.get(k).isOneway()){	//take the one and only twoway street
+                                                    priorityEndStreet = priorityStreets.get(k);
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if(priorityEndStreet.getStartNode() != this) priorityEndNode = priorityEndStreet.getStartNode();
+                                    else priorityEndNode = priorityEndStreet.getEndNode();
+                                    if(isLineRight(tmpNode.getX(), tmpNode.getY(), priorityEndNode.getX(), priorityEndNode.getY(), turnOffNode.getX(), turnOffNode.getY())){
+                                        //add lowest priority but without need to check if a vehicle is coming from targetStreet
+                                        junction_.addJunctionRule(tmpNode, turnOffNode, 4);
+                                    } else {
+                                        //add to lowest priority
+                                        junction_.addJunctionRule(tmpNode, turnOffNode, 5);
+                                    }
+                                } else {
+                                    //add to lowest priority
+                                    junction_.addJunctionRule(tmpNode, turnOffNode, 5);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
 
     }
 
@@ -233,6 +488,33 @@ public class Node {
 
 
 
+    /**
+     * Checks if the turnoff is at the right hand side compared to a (priority) street which goes from start over current node to an end.
+     *
+     * @param startX 		the x coordinate of the start
+     * @param starty 		the y coordinate of the start
+     * @param endX 			the x coordinate of the end
+     * @param endY 			the y coordinate of the end
+     * @param turnoffX 		the x coordinate of the turnoff
+     * @param turnoffY 		the y coordinate of the turnoff
+     *
+     * @return <code>true</code>, if line is on right side, else <code>false</code>
+     */
+    private boolean isLineRight(int startX, int starty, int endX, int endY, int turnoffX, int turnoffY){
+        //get the polar coordinates (root of "virtual" coordinate system is the junction!)
+        double startLineAngle = (Math.atan2(starty - y_ , startX - x_) + Math.PI);	//adding PI to get non-negative values from 0...2PI
+        double endLineAngle = (Math.atan2(endY - y_ , endX - x_) + Math.PI);
+        double turnoffLineAngle = (Math.atan2(turnoffY - y_ , turnoffX - x_) + Math.PI);
+
+        //check if the angle between turnoff and startLine is larger than the angle between endLine and startLine
+        double diffTurnoff = turnoffLineAngle-startLineAngle;
+        if (diffTurnoff < 0) diffTurnoff += 2*Math.PI;	//calculated angle in wrong orientation => correct
+        double diffEnd = endLineAngle-startLineAngle;
+        if (diffEnd < 0) diffEnd += 2*Math.PI;
+
+        if(diffTurnoff > diffEnd) return true;
+        else return false;
+    }
 
 
 

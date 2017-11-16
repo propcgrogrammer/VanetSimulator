@@ -65,8 +65,8 @@ public class VanetSimStart implements Runnable{
 
     public VanetSimStart(){
 
-        Debug.whereru("VanetSimStart", Debug.ISLOGGED);
-        Debug.callFunctionInfo("VanetSimStart", "VanetSimStart()", Debug.ISLOGGED);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "VanetSimStart()", Debug.ISLOGGED);
 
         //	new Statistics("行車速率表").createResultFrame("time vs velocity");
 
@@ -83,14 +83,16 @@ public class VanetSimStart implements Runnable{
     @Override
     public void run() {
 
-        Debug.callFunctionInfo("VanetSimStart", "run()", Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "run()", Debug.ISLOGGED);
 
         Debug.detailedInfo("Thread which creates the GUI.", Debug.ISLOGGED);
 
         Debug.detailedInfo("creating MainFrame ...", Debug.ISLOGGED);
+
         mainFrame_ = new JFrame();
         mainFrame_.setTitle(Messages.getString("StartGUI.applicationtitle")); //$NON-NLS-1$
         mainFrame_.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
         Debug.detailedInfo("create MainFrame finish", Debug.ISLOGGED);
 
         /**
@@ -151,7 +153,7 @@ public class VanetSimStart implements Runnable{
      */
     public static DrawingArea addComponentsToPane(Container container) {
 
-        Debug.callFunctionInfo("VanetSimStart", "addComponentsToPane(Container container)", Debug.ISLOGGED);
+        Debug.callFunctionInfo("VanetSimStart","addComponentsToPane(Container container)",Debug.ISLOGGED);
 
         container.setLayout(new GridBagLayout());
         GridBagConstraints c = new GridBagConstraints();
@@ -194,6 +196,9 @@ public class VanetSimStart implements Runnable{
      * @param state	<code>true</code> to display the progress bar, <code>false</code> to disable it
      */
     public static void setProgressBar(boolean state){
+
+        Debug.callFunctionInfo("VanetSimStart","setProgressBar(boolean state)",Debug.ISLOGGED);
+
         progressBar_.setVisible(state);
     }
     /**
@@ -202,6 +207,9 @@ public class VanetSimStart implements Runnable{
      * @return the control panel
      */
     public static MainControlPanel getMainControlPanel(){
+
+        Debug.callFunctionInfo("VanetSimStart","getMainControlPanel()",Debug.ISLOGGED);
+
         return controlPanel_;
     }
 

@@ -461,6 +461,10 @@ public final class EditControlPanel extends JPanel implements ActionListener {
      * @param state
      */
     public void setEditMode(boolean state){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"setEditMode(boolean state)",Debug.ISLOGGED);
+
+
         if(state) enableEdit_.setSelected(true);
         else disableEdit_.setSelected(true);
         editPanel_.setVisible(state);
@@ -523,6 +527,9 @@ public final class EditControlPanel extends JPanel implements ActionListener {
      * @return the control panel
      */
     public EditEventControlPanel getEditEventPanel(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"getEditEventPanel()",Debug.ISLOGGED);
+
         return editEventPanel_;
     }
 

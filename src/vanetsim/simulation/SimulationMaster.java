@@ -269,7 +269,7 @@ public class SimulationMaster extends Thread {
      * Instantiates a new simulation master.
      */
     public SimulationMaster(){
-        Debug.whereru("SimulationMaster", Debug.ISLOGGED);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
         Debug.debugInfo(this.getClass().getName(), "SimulationMaster()", Debug.ISLOGGED);
     }
 
@@ -365,12 +365,13 @@ public class SimulationMaster extends Thread {
 
         ReportingControlPanel statsPanel = null;
         /** 預設 consoleStart 為 false，故一開始statsPanel會被指定 ReportingControlPanel 物件*/
+        /** ReportingControlPanel 未完整實作 */
         if(!Renderer.getInstance().isConsoleStart()) statsPanel = VanetSimStart.getMainControlPanel().getReportingPanel();
 
         long timeOld = 0;
         long timeNew = 0;
         long timeDistance = 0;
-        /** 預設 consoleStart 為 false */
+        /** 預設 consoleStart（我們不使用console介面） 為 false */
         boolean consoleStart = Renderer.getInstance().isConsoleStart();
 
 
@@ -395,8 +396,7 @@ public class SimulationMaster extends Thread {
 
                         Debug.detailedInfo("when workers_ is null", Debug.ISLOGGED);
 
-                        System.out.println("Map =>"+Map.getInstance().getReadyState());
-                        System.out.println("Scenario =>"+Scenario.getInstance().getReadyState());
+
 
                         if (Map.getInstance().getReadyState() == true && Scenario.getInstance().getReadyState() == true){	// wait until map is ready
 
@@ -411,7 +411,6 @@ public class SimulationMaster extends Thread {
                             // Prepare multiple worker threads to gain advantage of multi-core processors
 
                             Debug.detailedInfo("use parameter TIME_PER_STEP and threads for createWorkers", Debug.ISLOGGED);
-
 
                             workers_ = createWorkers(TIME_PER_STEP, threads);
 

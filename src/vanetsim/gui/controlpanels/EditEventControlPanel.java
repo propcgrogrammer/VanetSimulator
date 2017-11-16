@@ -79,8 +79,8 @@ public final class EditEventControlPanel extends JPanel implements ActionListene
      */
     public EditEventControlPanel(){
 
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "EditEventControlPanel()", true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "EditEventControlPanel()", Debug.ISLOGGED);
 
         setLayout(new GridBagLayout());
 
@@ -204,6 +204,9 @@ public final class EditEventControlPanel extends JPanel implements ActionListene
      * Update the event list.
      */
     public void updateList(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"updateList()",Debug.ISLOGGED);
+
         /** 待增加
          *  於2017/11/14_2320 新增
          * */

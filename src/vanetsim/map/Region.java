@@ -7,6 +7,7 @@ import vanetsim.scenario.RSU;
 import vanetsim.scenario.Vehicle;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 /**
  * A region stores all objects in a specific part of the map. It stores streets, nodes and vehicles.
@@ -105,6 +106,17 @@ public final class Region {
         rightBoundary_ = rightBoundary;
         upperBoundary_ = upperBoundary;
         lowerBoundary_ = lowerBoundary;
+
+        HashMap map = new HashMap<String, String>();
+        map.put("x",String.valueOf(x_));
+        map.put("y",String.valueOf(y_));
+        map.put("leftBoundary",String.valueOf(leftBoundary_));
+        map.put("rightBoundary",String.valueOf(rightBoundary_));
+        map.put("upperBoundary",String.valueOf(upperBoundary_));
+        map.put("lowerBoundary",String.valueOf(lowerBoundary_));
+
+        Debug.debugInfo(map, Debug.ISLOGGED);
+
     }
 
     /**
@@ -114,6 +126,7 @@ public final class Region {
      * @param doCheck 	<code>true</code> if a check should be made if this node already exists; else <code>false</code> to skip the test
      *
      * @return the node added (might be different from <code>node</code> if it already existed and <code>check</code> was true)
+     * 回傳已添加新節點(Node)
      */
     public Node addNode(Node node, boolean doCheck){
         if(doCheck){
@@ -130,6 +143,7 @@ public final class Region {
             if(foundNode != null) return foundNode;
         }
         Node[] newArray = new Node[nodes_.length+1];
+        /** System.arraycopy(來源陣列，起始索引值，目的陣列，起始索引值，複製長度); */
         System.arraycopy (nodes_,0,newArray,0,nodes_.length);
         newArray[nodes_.length] = node;
         nodes_ = newArray;
@@ -183,6 +197,9 @@ public final class Region {
      * and what their priority streets are. Furthermore, mixing zones are generated.
      */
     public void calculateJunctions(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"calculateJunctions()",Debug.ISLOGGED);
+
         if(Renderer.getInstance().isAutoAddMixZones()) mixZoneNodes_ = new Node[0];
 
         for(int i = 0; i < nodes_.length; ++i){
@@ -440,6 +457,15 @@ public final class Region {
      */
     public Node[] getMixZoneNodes(){
         return mixZoneNodes_;
+    }
+
+    /**
+     * Returns all nodes in this region.
+     *
+     * @return an array containing all nodes
+     */
+    public Node[] getNodes(){
+        return nodes_;
     }
 
     /**

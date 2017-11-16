@@ -2,6 +2,7 @@ package vanetsim.scenario;
 
 
 import vanetsim.VanetSimStart;
+import vanetsim.debug.Debug;
 import vanetsim.gui.Renderer;
 import vanetsim.gui.helpers.MouseClickManager;
 import vanetsim.map.Map;
@@ -49,6 +50,8 @@ public class Scenario {
      * 於 2017/10/24_0425 新增
      */
     public void initNewScenario(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"initNewScenario()",Debug.ISLOGGED);
 
         if(ready_ == true){ /** 預設ready為true，所以初次必會執行 */
             /** 初始化地圖，lock不讓模擬執行 */
@@ -101,11 +104,7 @@ public class Scenario {
              * */
 
             if(!Renderer.getInstance().isConsoleStart())VanetSimStart.getMainControlPanel().getEditPanel().getEditEventPanel().updateList();
-
-
         }
-
-
     }
 
     /**

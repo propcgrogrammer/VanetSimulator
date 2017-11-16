@@ -38,9 +38,9 @@ public class Debug {
     public final static boolean ISLOGGED = false;
 
     /**
-     * if IS_GET_DETAILED_INFO = true  該筆紀錄顯示於console log 反之
+     * if IS_SHOW_IN_CONSOLE = true  該筆紀錄顯示於console log 反之 (預設為顯示)
      */
-    public final static boolean IS_GET_DETAILED_INFO = false;
+    public final static boolean IS_SHOW_IN_CONSOLE = true;
 
 //	private SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd hh:mm:ss");
 
@@ -60,10 +60,13 @@ public class Debug {
      */
     public static void whereru(String class_name, boolean isWrite)
     {
-        System.out.println(".");
-        System.out.println("====================================================");
-        System.out.println("===       at class  :   " + class_name + "      ===");
-        System.out.println("====================================================");
+        if(IS_SHOW_IN_CONSOLE)
+        {
+            System.out.println(".");
+            System.out.println("====================================================");
+            System.out.println("===       at class  :   " + class_name + "      ===");
+            System.out.println("====================================================");
+        }
 
         if(isWrite)
         {
@@ -99,26 +102,28 @@ public class Debug {
      */
     public static void detailedInfo(String info, boolean isWrite)
     {
-        System.out.println(".");
-        System.out.println("++++++++++++ (Detailed Info) +++++++++++");
 
-        if(info == null || info.equals("") || info == "")  return;
+        if (info == null || info.equals("") || info == "") return;
 
         int length = info.length();
         int p = (length / SECTION) + 1;
         int q = length % SECTION;
 
-        //	System.out.println("p =>" + p + " : q =>" + q);
+        if(IS_SHOW_IN_CONSOLE) {
+            System.out.println(".");
+            System.out.println("++++++++++++ (Detailed Info) +++++++++++");
 
-        for(int i = 0 ; i < p ; i++)
-        {
+            //	System.out.println("p =>" + p + " : q =>" + q);
 
-            if(i == p-1) System.out.println("> " + info.substring((i*SECTION),(i*SECTION)+q));
-            else System.out.println("> " + info.substring((i*SECTION), ((i+1)*SECTION)-1));
+            for (int i = 0; i < p; i++) {
 
+                if (i == p - 1) System.out.println("> " + info.substring((i * SECTION), (i * SECTION) + q));
+                else System.out.println("> " + info.substring((i * SECTION), ((i + 1) * SECTION) - 1));
+
+            }
+
+            System.out.println("+++++++++++++++++++++++++++++++++++++++++");
         }
-
-        System.out.println("+++++++++++++++++++++++++++++++++++++++++");
 
         if(isWrite)
         {
@@ -162,12 +167,14 @@ public class Debug {
      */
     public static void callFunctionInfo(String class_name, String function_name, boolean isWrite)
     {
-        System.out.println(".");
-        System.out.println("+--------------------- ( function info )-------------------------+");
-        System.out.println("|                  class       |               function          | ");
-        System.out.println("+-----------------------------------------------------------------+");
-        System.out.println("|   " + class_name + "        |       " + function_name + "  |     ");
-        System.out.println("+-----------------------------------------------------------------+");
+        if(IS_SHOW_IN_CONSOLE) {
+            System.out.println(".");
+            System.out.println("+--------------------- ( function info )-------------------------+");
+            System.out.println("|                  class       |               function          | ");
+            System.out.println("+-----------------------------------------------------------------+");
+            System.out.println("|   " + class_name + "        |       " + function_name + "  |     ");
+            System.out.println("+-----------------------------------------------------------------+");
+        }
         if(isWrite)
         {
             FileWriter fw;
@@ -204,14 +211,14 @@ public class Debug {
      */
     public static void ThreadInfo(Thread thread, boolean isWrite)
     {
-
-        System.out.println(".");
-        System.out.println("<<<<<<<<<<<<<<<<<<<<<  thread info >>>>>>>>>>>>>>>>>>>>>>>>");
-        System.out.println("<                  class        |               name          |         state         > ");
-        System.out.println("<----------------------------------------------------------------->");
-        System.out.println("<   " + thread.getClass().getName() + "        |       " + thread.getName() + "               |        "+ thread.getState().toString() + "  >     ");
-        System.out.println("<----------------------------------------------------------------->");
-
+        if(IS_SHOW_IN_CONSOLE) {
+            System.out.println(".");
+            System.out.println("<<<<<<<<<<<<<<<<<<<<<  thread info >>>>>>>>>>>>>>>>>>>>>>>>");
+            System.out.println("<                  class        |               name          |         state         > ");
+            System.out.println("<----------------------------------------------------------------->");
+            System.out.println("<   " + thread.getClass().getName() + "        |       " + thread.getName() + "               |        " + thread.getState().toString() + "  >     ");
+            System.out.println("<----------------------------------------------------------------->");
+        }
 
 
         if(isWrite)
@@ -251,12 +258,14 @@ public class Debug {
      */
     public static void debugInfo(String title, String content, boolean isWrite)
     {
-        System.out.println(".");
-        System.out.println("+--------------------- ( variable info )--------------------------+");
-        System.out.println("|                  variable       |               value          | ");
-        System.out.println("+-----------------------------------------------------------------+");
-        System.out.println("|   " + title + "        |       " + content + "  |     ");
-        System.out.println("+-----------------------------------------------------------------+");
+        if(IS_SHOW_IN_CONSOLE) {
+            System.out.println(".");
+            System.out.println("+--------------------- ( variable info )--------------------------+");
+            System.out.println("|                  variable       |               value          | ");
+            System.out.println("+-----------------------------------------------------------------+");
+            System.out.println("|   " + title + "        |       " + content + "  |     ");
+            System.out.println("+-----------------------------------------------------------------+");
+        }
 
         if(isWrite)
         {
@@ -300,53 +309,62 @@ public class Debug {
     public static void debugInfo(HashMap<String,String> map, boolean isWrite)
     {
 
-        FileWriter fw;
-        try {
 
-            if(FILENAME.equals("") || FILENAME == "")
-                FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
+        if(isWrite) {
+
+            try {
+                FileWriter fw;
+
+                if (FILENAME.equals("") || FILENAME == "")
+                    FILENAME = "log_" + new java.util.Date().getTime() + ".txt";
 
 
-            fw = new FileWriter(FILENAME,true);
-            System.out.println(".");
-            System.out.println("+--------------------- ( variable info )--------------------------+");
-            System.out.println("|                  variable       |               value          | ");
-            System.out.println("+-----------------------------------------------------------------+");
-            if(isWrite)
-            {
+                fw = new FileWriter(FILENAME, true);
                 fw.write(".\r\n");
                 fw.write("+--------------------- ( variable info )--------------------------+\r\n");
                 fw.write("|                  variable       |               value          | \r\n");
                 fw.write("+-----------------------------------------------------------------+\r\n");
+
+                for(Object key : map.keySet())
+                {
+                    String k = key.toString();
+                    String v = (map.get(key)).toString();
+
+                    fw.write("|   " + k + "        |       " + v + "  |     \r\n");
+
+                }
+
+                fw.write("+-----------------------------------------------------------------+\r\n");
+                fw.flush();
+                fw.close();
+
+            } catch (IOException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
             }
+        }
+
+        if(IS_SHOW_IN_CONSOLE) {
+
+            System.out.println(".");
+            System.out.println("+--------------------- ( variable info )--------------------------+");
+            System.out.println("|                  variable       |               value          | ");
+            System.out.println("+-----------------------------------------------------------------+");
 
 
-            for(Object key : map.keySet())
-            {
+            for (Object key : map.keySet()) {
                 String k = key.toString();
                 String v = (map.get(key)).toString();
 
-                if(isWrite) fw.write("|   " + k + "        |       " + v + "  |     \r\n");
 
                 System.out.println("|   " + k + "        |       " + v + "  |     ");
             }
 
             System.out.println("+-----------------------------------------------------------------+");
-            if(isWrite)  fw.write("+-----------------------------------------------------------------+\r\n");
-            fw.flush();
-            fw.close();
 
-
-
-        } catch (IOException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
         }
 
 
-
     }
-
-
 
 }

@@ -171,8 +171,8 @@ public final class EditStreetControlPanel extends JPanel implements ActionListen
      */
     public EditStreetControlPanel(){
 
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "EditStreetControlPanel()", true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "EditStreetControlPanel()", Debug.ISLOGGED);
 
         setLayout(new GridBagLayout());
 

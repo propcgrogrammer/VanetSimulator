@@ -206,6 +206,9 @@ public class MainControlPanel extends JPanel implements ChangeListener {
      * @return the control panel
      */
     public SimulateControlPanel getSimulatePanel(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"getSimulatePanel()",Debug.ISLOGGED);
+
         return simulatePanel_;
     }
 
@@ -215,6 +218,9 @@ public class MainControlPanel extends JPanel implements ChangeListener {
      * @return the control panel
      */
     public EditControlPanel getEditPanel(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"getEditPanel()",Debug.ISLOGGED);
+
         return editPanel_;
     }
 
@@ -224,6 +230,9 @@ public class MainControlPanel extends JPanel implements ChangeListener {
      * @return the control panel
      */
     public ReportingControlPanel getReportingPanel(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"getReportingPanel()",Debug.ISLOGGED);
+
         return reportingPanel_;
     }
 

@@ -12,6 +12,7 @@ import vanetsim.gui.Renderer;
 import vanetsim.gui.controlpanels.MapSizeDialog;
 import vanetsim.gui.helpers.MouseClickManager;
 import vanetsim.localization.Messages;
+import vanetsim.routing.A_Star.A_Star_LookupTableFactory;
 import vanetsim.scenario.RSU;
 import vanetsim.scenario.Scenario;
 import vanetsim.scenario.Vehicle;
@@ -115,6 +116,9 @@ public class Map {
      * @param regionHeight	the height of a region
      */
     public void initNewMap(int width, int height, int regionWidth, int regionHeight){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"initNewMap(int width, int height, int regionWidth, int regionHeight)",Debug.ISLOGGED);
+
         int i, j;
         if(ready_ == true) {
             ready_ = false;
@@ -134,6 +138,8 @@ public class Map {
                 Scenario.getInstance().setReadyState(true);
             }
 
+            A_Star_LookupTableFactory.clear();
+            Node.resetNodeID();
 
             /*********************************
              *  Map 部分
@@ -185,6 +191,9 @@ public class Map {
      * This function needs to be called to signal that the loading process of the map has finished.
      */
     public void signalMapLoaded(){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"signalMapLoaded()",Debug.ISLOGGED);
+
         // optimize the ArrayLists in the regions in order to free wasted memory
 
         for(int i = 0; i < regionCountX_; ++i) {
@@ -192,6 +201,7 @@ public class Map {
 
                 /** 注意calculateJunctions（）未實作
                  *  於2017/11/15_0020 部分新增（calculateJunctions（）內部仍有待實作部分）
+                 *  於2017/11/16_1634 完整實作 calculateJunctions()
                  * */
                 regions_[i][j].calculateJunctions();
             }
@@ -202,7 +212,6 @@ public class Map {
             Renderer.getInstance().setMiddle(width_/2, height_/2);
             Renderer.getInstance().setMapZoom(Math.exp(5/100.0)/1000);
             Renderer.getInstance().ReRender(true, false);
-
         }
 
         /** 暫時做註銷 checkStreetsForBridges（）方法 */

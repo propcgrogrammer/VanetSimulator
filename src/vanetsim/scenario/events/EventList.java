@@ -1,16 +1,16 @@
 package vanetsim.scenario.events;
 
-import vanetsim.debug.Debug;
-
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.PriorityQueue;
+
+import vanetsim.debug.Debug;
 
 
 /**
  * This class stores all events.
  */
-public final class EventList {
+public final class EventList{
 
 	/** The only instance of this class (singleton). */
 	private static final EventList INSTANCE = new EventList();
@@ -25,14 +25,14 @@ public final class EventList {
 	 * Empty, private constructor in order to disable instancing.
 	 */
 	private EventList(){
-		Debug.whereru(this.getClass().getName(), true);
-		Debug.callFunctionInfo(this.getClass().getName(), "EventList()", true);
-		
-	}	
+		Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+		Debug.callFunctionInfo(this.getClass().getName(), "EventList()", Debug.ISLOGGED);
+
+	}
 
 	/**
 	 * Gets the single instance of this EventList.
-	 * 
+	 *
 	 * @return single instance of this EventList
 	 */
 	public static EventList getInstance(){
@@ -40,12 +40,30 @@ public final class EventList {
 	}
 
 	/**
-	 * Process next event(s).
+	 * Adds an event.
 	 *
-	 * @param time the current absolute time of the simulation
+	 * @param event the event
 	 */
-	public void processEvents(int time){
+	public void addEvent(Event event){
+		allEvents_.add(event);
+	}
 
+	/**
+	 * Removes an event.
+	 *
+	 * @param event the event
+	 */
+	public void delEvent(Event event){
+		event.destroy();
+		allEvents_.remove(event);
+	}
+
+	/**
+	 * Removes all events.
+	 */
+	public void clearEvents(){
+		allEvents_.clear();
+		currentBlockings_.clear();
 	}
 
 	/**
@@ -57,11 +75,77 @@ public final class EventList {
 		return allEvents_.iterator();
 	}
 
+
 	/**
-	 * Removes all events.
+	 * Gets the list with all blocking events. Note that this is not optimal for application performance
+	 * as new a complete new ArrayList is created (applies only if there are lots of events).
+	 *
+	 * @return the an array list with all blocking events.
 	 */
-	public void clearEvents(){
-		allEvents_.clear();
-		currentBlockings_.clear();
+	public ArrayList<StartBlocking> getAllBlockingsArrayList(){
+
+		Debug.callFunctionInfo(this.getClass().getName(), "getAllBlockingsArrayList()", Debug.ISLOGGED);
+
+
+		Iterator<Event> events = allEvents_.iterator();
+		ArrayList<StartBlocking> result = new ArrayList<StartBlocking>(16);
+		Event event;
+		while(events.hasNext()){
+			event = events.next();
+			if(event.getClass() == StartBlocking.class){
+				result.add((StartBlocking)event);
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * Gets the list with the currently active events.
+	 *
+	 * @return the current events array list
+	 */
+	public ArrayList<StartBlocking> getCurrentBlockingsArrayList(){
+
+		Debug.callFunctionInfo(this.getClass().getName(), "getCurrentBlockingsArrayList()", Debug.ISLOGGED);
+
+		return currentBlockings_;
+	}
+
+	/**
+	 * Adds an event to the list of currently active events.
+	 *
+	 * @param event the event
+	 */
+	public void addCurrentBlockings(StartBlocking event){
+		currentBlockings_.add(event);
+	}
+
+	/**
+	 * Removes an event from the list of currently active events.
+	 *
+	 * @param event the event
+	 */
+	public void delCurrentBlockings(StartBlocking event){
+		currentBlockings_.remove(event);
+	}
+
+	/**
+	 * Process next event(s).
+	 *
+	 * @param time the current absolute time of the simulation
+	 */
+	public void processEvents(int time){
+
+		Debug.callFunctionInfo(this.getClass().getName(), "processEvents(int time)", Debug.ISLOGGED);
+		Debug.detailedInfo("use allEvents_ object to store all coming events", Debug.ISLOGGED);
+
+		Event tmpEvent;
+		while(allEvents_.size() > 0){
+			tmpEvent = allEvents_.peek();	//don't remove item yet
+			if(tmpEvent.getTime() <= time){	//it's time to fire this event!
+				allEvents_.poll();		//now we can remove it!
+				tmpEvent.execute();		//execute event
+			} else break;		//event is not due yet => all others in this queue won't be either so we can stop looking!
+		}
 	}
 }

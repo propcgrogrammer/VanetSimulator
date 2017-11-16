@@ -65,8 +65,8 @@ public class RSUPanel extends JPanel implements ActionListener{
      */
     public RSUPanel(){
 
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "RSUPanel()", true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "RSUPanel()", Debug.ISLOGGED);
 
         setLayout(new GridBagLayout());
 

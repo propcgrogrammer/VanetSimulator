@@ -29,6 +29,7 @@ import java.util.ArrayDeque;
 
 import javax.imageio.ImageIO;
 import vanetsim.ErrorLog;
+import vanetsim.debug.Debug;
 import vanetsim.localization.Messages;
 import vanetsim.map.Junction;
 import vanetsim.map.Map;
@@ -289,6 +290,9 @@ public final class Renderer{
      * @param forceRenderNow <code>true</code> to force an immediate update regardless of consistency considerations (should only be used by the {@link vanetsim.simulation.SimulationMaster})
      */
     public void ReRender(boolean fullRender, boolean forceRenderNow){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"ReRender(boolean fullRender, boolean forceRenderNow)",Debug.ISLOGGED);
+
         if(!isConsoleStart()){
             if(fullRender) scheduleFullRender_ = true;
             if (drawArea_ != null){
@@ -336,6 +340,8 @@ public final class Renderer{
      * @param image the <code>BufferedImage</code> on which rendering should be done
      */
     public synchronized void drawStaticObjects(BufferedImage image){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"drawStaticObjects(BufferedImage image)",Debug.ISLOGGED);
 
         Graphics2D g2d = image.createGraphics();
         Region[][] regions = map_.getRegions();
@@ -732,6 +738,314 @@ public final class Renderer{
 
     }
 
+    /**
+     * This function renders all non-static objects on the supplied <code>Graphics2D</code> object.
+     * 由 DrawingArea --> paintComponent(Graphics g) 呼叫
+     * 於 2017/11/16_2056 完整新增
+     * @param g2d	the <code>Graphics2D</code> object on which rendering takes place
+     */
+    public void drawMovingObjects(Graphics2D g2d){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"drawMovingObjects(Graphics2D g2d)",Debug.ISLOGGED);
+
+        Region[][] regions = map_.getRegions();
+        if(regions != null && map_.getReadyState() && (!simulationRunning_ || doPaintInitializedBySimulation_)){
+            int i, j, k, size;
+            Vehicle vehicle;
+            Vehicle[] vehicles;
+
+            // A small fix because the substance theme engine sometimes causes unwanted shifts
+            AffineTransform g2dAffine = g2d.getTransform();	//cache to save some calls
+            if(g2dAffine.getTranslateX() > maxTranslationX_) maxTranslationX_ = g2dAffine.getTranslateX();
+            if(g2dAffine.getTranslateY() > maxTranslationY_) maxTranslationY_ = g2dAffine.getTranslateY();
+            if(g2dAffine.getTranslateX() < 0 || g2dAffine.getTranslateY() < 0) tmpAffine_ = (AffineTransform)g2dAffine.clone();
+            else if(g2dAffine.getTranslateX() < maxTranslationX_ || g2dAffine.getTranslateY() < maxTranslationY_) tmpAffine_.setToIdentity();
+            else tmpAffine_.setToTranslation(maxTranslationX_, maxTranslationY_);
+            tmpAffine_.concatenate(transform_);
+            AffineTransform tmpAffine2 = g2d.getTransform();
+            g2d.setTransform(tmpAffine_);
+
+            if(showBeaconMonitorZone_){
+                g2d.setColor(Color.orange);
+                g2d.drawRect(beaconMonitorMinX_, beaconMonitorMinY_, beaconMonitorMaxX_ - beaconMonitorMinX_, beaconMonitorMaxY_ - beaconMonitorMinY_);
+            }
+
+            // draw street marked by user
+            if(markedStreet_!=null){
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                int totalLanes;
+                if(markedStreet_.isOneway()) totalLanes = markedStreet_.getLanesCount();
+                else totalLanes = 2 * markedStreet_.getLanesCount();
+
+                int x0 = markedStreet_.getStartNode().getX();
+                int y0 = markedStreet_.getStartNode().getY();
+                int x1 = markedStreet_.getEndNode().getX();
+                int y1 = markedStreet_.getEndNode().getY();
+
+                // paint the line with a black background
+                g2d.setStroke(new BasicStroke(Map.LANE_WIDTH*totalLanes + 45,BasicStroke.CAP_ROUND,BasicStroke.JOIN_MITER));
+                g2d.setPaint(Color.BLACK);
+                g2d.drawLine(x0, y0, x1, y1);
+
+                // paint arrows to indicate direction. See http://lifshitz.ucdavis.edu/~dmartin/teach_java/slope/arrows.html (link last visited: 04.09.2008)
+                int deltaX = x1 - x0;
+                int deltaY = y1 - y0;
+                double frac = 0.2;
+                if(markedStreet_.getLength() < 1000 && markedStreet_.isOneway())frac = 0.9;	//paint short streets which are oneway with longer arrow. There's no solution implemented for short twoway-streets...
+
+                g2d.drawLine(x0 + (int)((1-frac)*deltaX + frac*deltaY),y0 + (int)((1-frac)*deltaY - frac*deltaX),x1, y1);
+                g2d.drawLine(x0 + (int)((1-frac)*deltaX - frac*deltaY),y0 + (int)((1-frac)*deltaY + frac*deltaX),x1, y1);
+                if(!markedStreet_.isOneway()){
+                    deltaX = -deltaX;
+                    deltaY = -deltaY;
+                    g2d.drawLine(x1 + (int)((1-frac)*deltaX + frac*deltaY),y1 + (int)((1-frac)*deltaY - frac*deltaX),x0, y0);
+                    g2d.drawLine(x1 + (int)((1-frac)*deltaX - frac*deltaY),y1 + (int)((1-frac)*deltaY + frac*deltaX),x0, y0);
+                    deltaX = -deltaX;
+                    deltaY = -deltaY;
+                }
+
+                // paint the whole arrow again but this time with the fill color
+                g2d.setStroke(new BasicStroke(Map.LANE_WIDTH*totalLanes,BasicStroke.CAP_ROUND,BasicStroke.JOIN_MITER));
+                g2d.setPaint(Color.CYAN);
+                g2d.drawLine(x0, y0, x1, y1);
+
+                g2d.drawLine(x0 + (int)((1-frac)*deltaX + frac*deltaY),y0 + (int)((1-frac)*deltaY - frac*deltaX),x1, y1);
+                g2d.drawLine(x0 + (int)((1-frac)*deltaX - frac*deltaY),y0 + (int)((1-frac)*deltaY + frac*deltaX),x1, y1);
+                if(!markedStreet_.isOneway()){
+                    deltaX = -deltaX;
+                    deltaY = -deltaY;
+                    g2d.drawLine(x1 + (int)((1-frac)*deltaX + frac*deltaY),y1 + (int)((1-frac)*deltaY - frac*deltaX),x0, y0);
+                    g2d.drawLine(x1 + (int)((1-frac)*deltaX - frac*deltaY),y1 + (int)((1-frac)*deltaY + frac*deltaX),x0, y0);
+                }
+            }
+
+            g2d.setTransform(tmpAffine2);
+
+            //draw blocking events
+            ArrayList<StartBlocking> blockings;
+            if(showAllBlockings_) blockings = EventList.getInstance().getAllBlockingsArrayList();
+            else blockings = EventList.getInstance().getCurrentBlockingsArrayList();
+            size = blockings.size();
+            if(size > 0){
+                k=scaledBlockingImage_.getHeight()/2;
+                int l = scaledBlockingImage_.getHeight()/2;
+                for(i = 0; i < size; ++i){
+                    blockingImageTransformSource_.setLocation(blockings.get(i).getX()-k/zoom_, blockings.get(i).getY()-l/zoom_);
+                    transform_.transform(blockingImageTransformSource_, blockingImageTransformDestination_);
+                    g2d.drawImage(scaledBlockingImage_, (int)Math.round(blockingImageTransformDestination_.getX()), (int)Math.round(blockingImageTransformDestination_.getY()), null, drawArea_);
+                }
+            }
+
+            g2d.setTransform(tmpAffine_);
+
+            //Traffic lights
+            Street[] streets;
+            Street street;
+            for(i = regionMinX_; i <= regionMaxX_; ++i){
+                for(j = regionMinY_; j <= regionMaxY_; ++j){
+                    streets = regions[i][j].getStreets();
+                    for(k = 0; k < streets.length; ++k){
+
+                        street = streets[k];
+
+
+                        if(street.getEndNodeTrafficLightState() != -1) {
+                            if(markedJunction_ != null && markedJunction_.getNode().equals(street.getEndNode())){
+                                g2d.setPaint(Color.orange);
+                                g2d.fillOval(street.getTrafficLightEndX_()-(Map.LANE_WIDTH+45), street.getTrafficLightEndY_()-(Map.LANE_WIDTH+45),(Map.LANE_WIDTH+45)*2,(Map.LANE_WIDTH+45)*2);
+                            }
+                            if(street.getEndNodeTrafficLightState() == 0) g2d.setPaint(Color.green);
+                            else if (street.getEndNodeTrafficLightState() == 1 || street.getEndNodeTrafficLightState() == 7) g2d.setPaint(Color.yellow);
+                            else g2d.setPaint(Color.red);
+
+                            g2d.fillOval(street.getTrafficLightEndX_() - (Map.LANE_WIDTH), street.getTrafficLightEndY_() - (Map.LANE_WIDTH),(Map.LANE_WIDTH)*2,(Map.LANE_WIDTH)*2);
+                        }
+                        if(street.getStartNodeTrafficLightState() != -1){
+                            if(markedJunction_ != null && markedJunction_.getNode().equals(street.getStartNode())){
+                                g2d.setPaint(Color.orange);
+                                g2d.fillOval(street.getTrafficLightStartX_()-(Map.LANE_WIDTH+45), street.getTrafficLightStartY_()-(Map.LANE_WIDTH+45),(Map.LANE_WIDTH+45)*2,(Map.LANE_WIDTH+45)*2);
+                            }
+                            if(street.getStartNodeTrafficLightState() == 0) g2d.setPaint(Color.green);
+                            else if (street.getStartNodeTrafficLightState() == 1 || street.getStartNodeTrafficLightState() == 7) g2d.setPaint(Color.yellow);
+                            else g2d.setPaint(Color.red);
+
+                            g2d.fillOval(street.getTrafficLightStartX_() - (Map.LANE_WIDTH), street.getTrafficLightStartY_() - (Map.LANE_WIDTH),(Map.LANE_WIDTH)*2,(Map.LANE_WIDTH)*2);
+                        }
+                    }
+                }
+            }
+
+
+
+            //only if zoom is near enough
+            if(zoom_ > 0.0018){
+                if(displayVehicleIDs_) g2d.setFont(vehicleIDFont_);
+                // draw all visible vehicles
+                g2d.setStroke(new BasicStroke(20,BasicStroke.CAP_BUTT,BasicStroke.JOIN_MITER));
+                g2d.setPaint(Color.black);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                try{
+                    for(i = regionMinX_; i <= regionMaxX_; ++i){
+                        for(j = regionMinY_; j <= regionMaxY_; ++j){
+                            vehicles = regions[i][j].getVehicleArray();
+                            size = vehicles.length;
+                            for(k = 0; k < size; ++k){
+                                vehicle = vehicles[k];
+                                g2d.setPaint(vehicle.getColor());
+                                if((isShowVehicles() || vehicle.isActive()) && vehicle.getX() >= mapMinX_ && vehicle.getX() <= mapMaxX_ && vehicle.getY() >= mapMinY_ && vehicle.getY() <= mapMaxY_){		//only paint when necessary and within paint area
+                                    if(highlightCommunication_){
+                                        if(vehicle.isWiFiEnabled() && (!vehicle.isInMixZone() || Vehicle.getMixZonesFallbackEnabled())){
+                                            g2d.setStroke(new BasicStroke(220));
+                                            g2d.setPaint(Color.blue);
+                                            if(vehicle != markedVehicle_) g2d.drawOval(vehicle.getX()-vehicle.getMaxCommDistance(), vehicle.getY()-vehicle.getMaxCommDistance(),vehicle.getMaxCommDistance()*2,vehicle.getMaxCommDistance()*2);
+                                        } else g2d.setPaint(Color.black);
+                                    }
+                                    g2d.fillOval(vehicle.getX()-VEHICLE_SIZE/2, vehicle.getY()-VEHICLE_SIZE/2,VEHICLE_SIZE,VEHICLE_SIZE);
+                                }
+                            }
+                        }
+                    }
+                } catch (Exception e){}
+                if(displayVehicleIDs_){
+                    g2d.setPaint(new Color(153, 102, 100));
+                    try{
+                        for(i = regionMinX_; i <= regionMaxX_; ++i){
+                            for(j = regionMinY_; j <= regionMaxY_; ++j){
+                                vehicles = regions[i][j].getVehicleArray();
+                                size = vehicles.length;
+                                for(k = 0; k < size; ++k){
+                                    vehicle = vehicles[k];
+                                    if(vehicle.isActive() && vehicle.getX() >= mapMinX_ && vehicle.getX() <= mapMaxX_ && vehicle.getY() >= mapMinY_ && vehicle.getY() <= mapMaxY_){		//only paint when necessary and within paint area
+                                        g2d.drawString(vehicle.getHexID(), vehicle.getX() - vehicleIDFontSize_ *4, vehicle.getY() - VEHICLE_SIZE/2);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Exception e){}
+                }
+                // draw vehicle marked by user
+                if(markedVehicle_ != null){
+                    g2d.setStroke(new BasicStroke(30f));
+                    g2d.setPaint(Color.black);
+                    g2d.fillOval(markedVehicle_.getX()-VEHICLE_SIZE/2+35, markedVehicle_.getY()-VEHICLE_SIZE/2+35,VEHICLE_SIZE-70,VEHICLE_SIZE-70);
+
+                    if(markedVehicle_.isWiFiEnabled() && (!markedVehicle_.isInMixZone() || Vehicle.getMixZonesFallbackEnabled())) g2d.drawOval(markedVehicle_.getX()-markedVehicle_.getMaxCommDistance(), markedVehicle_.getY()-markedVehicle_.getMaxCommDistance(),markedVehicle_.getMaxCommDistance()*2,markedVehicle_.getMaxCommDistance()*2);
+                    WayPoint nextDestination = markedVehicle_.getDestinations().peekFirst();
+                    if(nextDestination != null){
+
+                        g2d.setStroke(new BasicStroke(68,BasicStroke.CAP_ROUND,BasicStroke.JOIN_MITER));
+                        g2d.setPaint(Color.CYAN);
+
+
+                        g2d.drawLine(markedVehicle_.getX(), markedVehicle_.getY(), nextDestination.getX(), nextDestination.getY());
+                        g2d.fillOval(nextDestination.getX()-VEHICLE_SIZE, nextDestination.getY()-VEHICLE_SIZE,VEHICLE_SIZE*2,VEHICLE_SIZE*2);
+                        Street[] routestreets = markedVehicle_.getRouteStreets();
+                        if(routestreets.length > 1){
+                            g2d.setStroke(new BasicStroke(220));
+                            g2d.setPaint(Color.blue);
+
+                            if(markedVehicle_.getCurDirection()) g2d.drawLine(markedVehicle_.getX(), markedVehicle_.getY(), markedVehicle_.getCurStreet().getEndNode().getX(), markedVehicle_.getCurStreet().getEndNode().getY());
+                            else g2d.drawLine(markedVehicle_.getX(), markedVehicle_.getY(), markedVehicle_.getCurStreet().getStartNode().getX(), markedVehicle_.getCurStreet().getStartNode().getY());
+                            for(i = markedVehicle_.getRoutePosition()+1; i < routestreets.length-1; ++i){
+                                g2d.drawLine(routestreets[i].getStartNode().getX(), routestreets[i].getStartNode().getY(), routestreets[i].getEndNode().getX(), routestreets[i].getEndNode().getY());
+                            }
+                            if(!markedVehicle_.getRouteDirections()[routestreets.length-1]){
+                                g2d.drawLine(nextDestination.getX(), nextDestination.getY(), routestreets[routestreets.length-1].getEndNode().getX(), routestreets[routestreets.length-1].getEndNode().getY());
+                            } else {
+                                g2d.drawLine(nextDestination.getX(), nextDestination.getY(), routestreets[routestreets.length-1].getStartNode().getX(), routestreets[routestreets.length-1].getStartNode().getY());
+                            }
+                        }
+                    }
+
+                    //added to display more than 2 Waypoints for one vehicle (only used in vehicle edit mode, so no need to improve the performance)
+                    if(isShowVehicles()){
+
+                        ArrayDeque<WayPoint> tmpDestinations = markedVehicle_.getDestinations();
+
+                        WayPoint oldDestination = null;
+                        for(WayPoint destination : tmpDestinations){
+                            if(oldDestination != null){
+                                g2d.setStroke(new BasicStroke(220));
+                                g2d.setPaint(Color.blue);
+                                g2d.fillOval(oldDestination.getX()-VEHICLE_SIZE, oldDestination.getY()-VEHICLE_SIZE,VEHICLE_SIZE*2,VEHICLE_SIZE*2);
+                                g2d.setPaint(Color.red);
+                                g2d.drawLine(oldDestination.getX(), oldDestination.getY(), destination.getX(), destination.getY());
+                            }
+
+                            g2d.setPaint(Color.red);
+                            g2d.fillOval(destination.getX()-VEHICLE_SIZE, destination.getY()-VEHICLE_SIZE,VEHICLE_SIZE*2,VEHICLE_SIZE*2);
+
+                            oldDestination = destination;
+                        }
+                    }
+                }
+                if(showAttackers_ || simulationRunning_){
+                    // draw attacker vehicle
+                    if(attackerVehicle_ != null){
+                        g2d.setPaint(Color.LIGHT_GRAY);
+                        g2d.fillOval(attackerVehicle_.getX()-VEHICLE_SIZE/2+35, attackerVehicle_.getY()-VEHICLE_SIZE/2+35,VEHICLE_SIZE-70,VEHICLE_SIZE-70);
+                    }
+                    // draw attacked vehicle
+                    if(attackedVehicle_ != null){
+                        g2d.setPaint(Color.GREEN);
+                        g2d.fillOval(attackedVehicle_.getX()-VEHICLE_SIZE/2+35, attackedVehicle_.getY()-VEHICLE_SIZE/2+35,VEHICLE_SIZE-70,VEHICLE_SIZE-70);
+                    }
+                }
+            }
+
+            // draw all nodes coloured to aid editing (only when editing streets and near enough)
+            if(highlightAllNodes_ && zoom_ > 0.0012){
+                //g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
+                Node[] nodes;
+                Node node;
+                for(i = regionMinX_; i <= regionMaxX_; ++i){
+                    for(j = regionMinY_; j <= regionMaxY_; ++j){
+                        nodes = regions[i][j].getNodes();
+                        for(k = 0; k < nodes.length; ++k){
+                            node = nodes[k];
+                            g2d.setPaint(Color.black);
+                            g2d.fillOval(node.getX()-(Map.LANE_WIDTH+45), node.getY()-(Map.LANE_WIDTH+45),(Map.LANE_WIDTH+45)*2,(Map.LANE_WIDTH+45)*2);
+                            g2d.setPaint(Color.pink);
+                            //marked junction
+                            if(markedJunction_ != null && markedJunction_.getNode().equals(node))g2d.setPaint(Color.red);
+                            g2d.fillOval(node.getX()-Map.LANE_WIDTH, node.getY()-Map.LANE_WIDTH,Map.LANE_WIDTH*2,Map.LANE_WIDTH*2);
+                        }
+                    }
+                }
+            }
+
+
+            // apply the fix for substance again for others which draw after us
+            if(g2dAffine.getTranslateX() < 0 || g2dAffine.getTranslateY() < 0) tmpAffine_ = g2dAffine;
+            else if(g2dAffine.getTranslateX() < maxTranslationX_ || g2dAffine.getTranslateY() < maxTranslationY_) tmpAffine_.setToIdentity();
+            else tmpAffine_.setToTranslation(maxTranslationX_, maxTranslationY_);
+            g2d.setTransform(tmpAffine_);
+
+            // display time
+            g2d.setPaint(Color.black);
+            g2d.setFont(timeFont_);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_OFF);
+            g2d.drawString(FORMATTER.format(timePassed_) + " ms", 5 ,10 ); //$NON-NLS-1$
+
+            //draw silent period sign
+            if(Vehicle.isSilent_period()){
+                // display time
+                g2d.setPaint(Color.red);
+                g2d.setFont(silentPeriodFont_);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_OFF);
+                g2d.drawString("SILENT PERIOD", 5 ,this.drawHeight_ - 10); //$NON-NLS-1$
+            }
+
+            if(simulationRunning_ && doPaintInitializedBySimulation_){
+                doPaintInitializedBySimulation_ = false;
+                try{
+                    barrierForSimulationMaster_.await();	//signal SimulationMaster that we are ready!
+                    barrierForSimulationMaster_.reset();
+                } catch (Exception e){}
+            }
+        }
+    }
+
 
     /**
      * Creates an image to see the current scale.
@@ -739,6 +1053,9 @@ public final class Renderer{
      * @param image	the <code>BufferedImage</code> on which rendering should be done
      */
     public void drawScale(BufferedImage image){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"drawScale(BufferedImage image)",Debug.ISLOGGED);
+
         Graphics2D g2d = image.createGraphics();
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,RenderingHints.VALUE_ANTIALIAS_ON);
         g2d.setColor(Color.white);
@@ -807,7 +1124,65 @@ public final class Renderer{
      * @param zoom the new zooming factor
      */
     public synchronized void setMapZoom(double zoom){
-        /** 待增加 */
+        /** 待增加
+         *  於 2017/11/16_1850 完整新增
+         * */
+
+        Debug.callFunctionInfo(this.getClass().getName(),"setMapZoom(double zoom)",Debug.ISLOGGED);
+
+        if(zoom > 0.0000045 && zoom < 0.5){		//limit zooming by mousewheel into range from 100km to 1m
+            zoom_ = zoom;
+            updateParams();
+
+            // update the image for blockings. The code is taken from
+            // http://today.java.net/pub/a/today/2007/04/03/perils-of-image-getscaledinstance.html (link last visited: 21.20.2008)
+            // and the comments there. getScaledImage() is a little bit better quality but is deprecated according to this as it's slow.
+            int size = (int)Math.round(1000 * zoom_);
+            if(size < 4) size = 4;
+            size = size - (size %2);
+
+            Graphics2D g2;
+            BufferedImage tmp;
+            GraphicsConfiguration gc = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice().getDefaultConfiguration();
+            int oldSize, curSize = blockingImage_.getWidth();
+            if(size < blockingImage_.getWidth()/2){ // new image is smaller than the original
+                // add some blur
+                float weight = 1.0f/9.0f;
+                float[] elements = new float[9];
+                for (int i = 0; i < 9; i++) {
+                    elements[i] = weight;
+                }
+                Kernel blurKernel = new Kernel(3, 3, elements);
+                scaledBlockingImage_ = gc.createCompatibleImage(blockingImage_.getWidth(), blockingImage_.getHeight(), Transparency.TRANSLUCENT);
+                new ConvolveOp(blurKernel).filter(blockingImage_, scaledBlockingImage_);
+
+                // do a multi-step resizing to get higher quality
+                do {
+                    oldSize = curSize;
+                    if (curSize > size) {
+                        curSize /= 2;
+                        if (curSize < size) curSize = size;
+                    }
+
+                    tmp = gc.createCompatibleImage(curSize, curSize, Transparency.TRANSLUCENT);
+                    g2 = tmp.createGraphics();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                    g2.drawImage(scaledBlockingImage_, 0, 0, curSize, curSize ,0, 0, oldSize, oldSize, null);
+                    g2.dispose();
+
+                    scaledBlockingImage_ = tmp;
+                } while (curSize > size);
+            } else {		// new image is larger than the original
+                scaledBlockingImage_ = gc.createCompatibleImage(size, size, Transparency.TRANSLUCENT);
+                g2 = scaledBlockingImage_.createGraphics();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                g2.drawImage(blockingImage_, 0, 0, size, size, null);
+                g2.dispose();
+            }
+        }
+
     }
 
     /**
@@ -819,7 +1194,69 @@ public final class Renderer{
      * should not matter a lot.
      */
     public synchronized void updateParams(){
-        /** 待增加 */
+        /** 待增加
+         *  於2017/11/16_2013 完整實作
+         * */
+
+        Debug.callFunctionInfo(this.getClass().getName(),"updateParams()",Debug.ISLOGGED);
+
+        if(map_.getReadyState() == true){
+            transform_.setToScale(zoom_, zoom_);		// set the zoom
+            transform_.translate(-middleX_ + (drawWidth_ / (zoom_*2)), -middleY_ + (drawHeight_/(zoom_*2)));		// pan and correct center of screen
+
+            lastOverdrawn_ = currentOverdrawn_;
+            currentOverdrawn_ = false;
+
+            //add a value on top to be able to correctly display communication distance and mix radius
+            int addValue = Vehicle.getMaximumCommunicationDistance();
+            if(Vehicle.getMixZoneRadius() > addValue) addValue = Vehicle.getMixZoneRadius();
+
+            // Minimum x coordinate to be considered for rendering
+            long tmp = (long) StrictMath.floor(middleX_ - (drawWidth_ / (zoom_*2))) - addValue;
+            if (tmp < 0){
+                mapMinX_ = 0;
+                currentOverdrawn_ = true;
+            } else if(tmp < Integer.MAX_VALUE) mapMinX_ = (int) tmp;
+            else mapMinX_ = Integer.MAX_VALUE;
+
+            // Maximum x coordinate to be considered for rendering
+            tmp = (long) StrictMath.ceil(middleX_ + (drawWidth_ / (zoom_*2))) + addValue;
+            if (tmp < 0) mapMaxX_ = 0;
+            else {
+                if(tmp > map_.getMapWidth()) currentOverdrawn_ = true;
+                if(tmp < Integer.MAX_VALUE) mapMaxX_ = (int) tmp;
+                else mapMaxX_ = Integer.MAX_VALUE;
+            }
+
+
+            // Minimum y coordinate to be considered for rendering
+            tmp = (long) StrictMath.floor(middleY_ - (drawHeight_ / (zoom_*2))) - addValue;
+            if (tmp < 0){
+                mapMinY_ = 0;		// Map stores only positive coordinates
+                currentOverdrawn_ = true;
+            } else if(tmp < Integer.MAX_VALUE) mapMinY_ = (int) tmp;
+            else mapMinY_ = Integer.MAX_VALUE;
+
+            // Maximum y coordinate to be considered for rendering
+            tmp = (long) StrictMath.ceil(middleY_ + (drawHeight_ / (zoom_*2))) + addValue;
+            if (tmp < 0) mapMaxY_ = 0;
+            else {
+                if(tmp > map_.getMapHeight()) currentOverdrawn_ = true;
+                if(tmp < Integer.MAX_VALUE) mapMaxY_ = (int) tmp;
+                else mapMaxY_ = Integer.MAX_VALUE;
+            }
+
+
+            // Get the regions to be considered for rendering
+            Region tmpregion = map_.getRegionOfPoint(mapMinX_, mapMinY_);
+            regionMinX_ = tmpregion.getX();
+            regionMinY_ = tmpregion.getY();
+
+            tmpregion = map_.getRegionOfPoint(mapMaxX_, mapMaxY_);
+            regionMaxX_ = tmpregion.getX();
+            regionMaxY_ = tmpregion.getY();
+        }
+
     }
 
     /**
@@ -874,6 +1311,9 @@ public final class Renderer{
      * @param running	<code>true</code> if a simulation is currently running, <code>false</code> if it's suspended
      */
     public void notifySimulationRunning(boolean running){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"notifySimulationRunning(boolean running)",Debug.ISLOGGED);
+
         simulationRunning_ = running;
     }
 
@@ -927,6 +1367,9 @@ public final class Renderer{
      * @param y	the new y coordinate for the center of the viewable area
      */
     public synchronized void setMiddle(int x, int y){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"setMiddle(int x, int y)",Debug.ISLOGGED);
+
         middleX_ = x;
         middleY_ = y;
         updateParams();
@@ -938,6 +1381,9 @@ public final class Renderer{
      * @param drawArea 	the area on which this Renderer draws
      */
     public void setDrawArea(DrawingArea drawArea){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"setDrawArea(DrawingArea drawArea)",Debug.ISLOGGED);
+
         drawArea_ = drawArea;
     }
 
@@ -974,6 +1420,9 @@ public final class Renderer{
      * @param barrier the barrier to use
      */
     public void setBarrierForSimulationMaster(CyclicBarrier barrier){
+
+        Debug.callFunctionInfo(this.getClass().getName(),"setBarrierForSimulationMaster(CyclicBarrier barrier)",Debug.ISLOGGED);
+
         barrierForSimulationMaster_ = barrier;
     }
 

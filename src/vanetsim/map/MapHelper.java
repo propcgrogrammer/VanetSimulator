@@ -85,6 +85,156 @@ public class MapHelper {
     }
 
     /**
+     * Returns the nearest street to a given point. First all regions are calculated which are within <code>maxDistance</code>. Then, ALL
+     * streets in these regions are checked if they are within this <code>maxDistance</code> and the best one is returned (if any exists).
+     *
+     * @param x 			the x coordinate of the given point
+     * @param y 			the x coordinate of the given point
+     * @param maxDistance	the maximum distance; use <code>Integer.MAX_VALUE</code> if you just want to get any nearest street but note
+     * 						that this costs a lot of performance because ALL regions and ALL streets are checked!
+     * @param distance 		an array used to return the distance between the nearest point and the point given. This should be a <code>double[1]</code> array!
+     * @param nearestPoint 	an array used to return the x-coordinate (<code>nearestpoint[0]</code>) and y-coordinate (<code>nearestpoint[1]</code>)
+     * 						on the street.
+     *
+     * @return the nearest street or <code>null</code> if none was found or an error occured
+     */
+    public static Street findNearestStreet(int x, int y, int maxDistance, double[] distance, int[] nearestPoint){
+        Map map = Map.getInstance();
+        Region[][] Regions = map.getRegions();
+        if(Regions != null && nearestPoint.length >1 && distance.length > 0){
+            int mapMinX, mapMinY, mapMaxX, mapMaxY, regionMinX, regionMinY, regionMaxX, regionMaxY;
+            int[] tmpPoint = new int[2];
+            Street[] streets;
+            int i, j, k, size;
+            Street bestStreet = null;
+            double tmpDistance, bestDistance = Double.MAX_VALUE;
+            long maxDistanceSquared = (long)maxDistance * maxDistance;
+
+            // Minimum x coordinate to be considered
+            long tmp = x - maxDistance;
+            if (tmp < 0) mapMinX = 0;		// Map stores only positive coordinates
+            else if(tmp < Integer.MAX_VALUE) mapMinX = (int) tmp;
+            else mapMinX = Integer.MAX_VALUE;
+
+            // Maximum x coordinate to be considered
+            tmp = x + (long)maxDistance;
+            if (tmp < 0) mapMaxX = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMaxX = (int) tmp;
+            else mapMaxX = Integer.MAX_VALUE;
+
+            // Minimum y coordinate to be considered
+            tmp = y - maxDistance;
+            if (tmp < 0) mapMinY = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMinY = (int) tmp;
+            else mapMinY = Integer.MAX_VALUE;
+
+            // Maximum y coordinate to be considered
+            tmp = y + (long)maxDistance;
+            if (tmp < 0) mapMaxY = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMaxY = (int) tmp;
+            else mapMaxY = Integer.MAX_VALUE;
+
+            // Get the regions to be considered
+            Region tmpregion = map.getRegionOfPoint(mapMinX, mapMinY);
+            regionMinX = tmpregion.getX();
+            regionMinY = tmpregion.getY();
+
+            tmpregion = map.getRegionOfPoint(mapMaxX, mapMaxY);
+            regionMaxX = tmpregion.getX();
+            regionMaxY = tmpregion.getY();
+
+            // only iterate through those regions which are within the distance
+            for(i = regionMinX; i <= regionMaxX; ++i){
+                for(j = regionMinY; j <= regionMaxY; ++j){
+                    streets = Regions[i][j].getStreets();
+                    size = streets.length;
+                    for(k = 0; k < size; ++k){
+                        tmpDistance = calculateDistancePointToStreet(streets[k], x, y, false, tmpPoint);
+                        if(tmpDistance < maxDistanceSquared && tmpDistance < bestDistance){
+                            bestDistance = tmpDistance;
+                            bestStreet = streets[k];
+                            nearestPoint[0] = tmpPoint[0];
+                            nearestPoint[1] = tmpPoint[1];
+                        }
+                    }
+                }
+            }
+            distance[0] = bestDistance;
+            return bestStreet;
+        } else return null;
+    }
+
+    /**
+     * Calculate the distance between a point and a street.
+     *
+     * @param street	the street given
+     * @param x 		x coordinate of the point
+     * @param y 		y coordinate of the point
+     * @param sqrt		if set to <code>true</code>, the correct distance is returned; if set to <code>false</code> the square of the distance is returned
+     * 					(little bit faster as it saves a call to <code>Math.sqrt()</code>; however, use only if you can handle this!)
+     * @param result	an array holding the point on the street so that it can be returned. <code>result[0]</code> holds the x coordinate,
+     * 					<code>result[1]</code> the y coordinate. Make sure the array has the correct size (2 elements)!
+     *
+     * @return the distance as a <code>double</code>. If nothing was found, <code>Double.MAX_VALUE</code> is returned.
+     */
+    public static double calculateDistancePointToStreet(Street street, int x, int y, boolean sqrt, int[] result){
+        if(findNearestPointOnStreet(street, x, y, result)){
+            // we got the nearest point on the line. Now calculate the distance between this nearest point and the given point
+            long tmp1 = (long)result[0] - x;	//long because x could be smaller 0 and result[0] could be Integer.MAX_VALUE!
+            long tmp2 = (long)result[1] - y;
+            if(sqrt) return Math.sqrt(tmp1 * tmp1 + tmp2 * tmp2); 	// Pythagorean theorem: a^2 + b^2 = c^2
+            else return (tmp1 * tmp1 + tmp2 * tmp2);
+        } else return Double.MAX_VALUE;
+    }
+
+    /**
+     * Calculates the point ON a street which is nearest to a given point (for snapping or such things).
+     * This code was inspired by <a href="http://local.wasp.uwa.edu.au/~pbourke/geometry/pointline/">
+     * Paul Bourke's homepage</a>, especially the Delphi sourcecode (link last visited on 15.08.2008). See
+     * there for the mathematical background of this calculation!
+     *
+     * @param street the street
+     * @param x 		the x coordinate of the point
+     * @param y 		the y coordinate of the point
+     * @param result	an array for the result. <code>result[0]</code> holds the x coordinate, <code>result[1]</code> the y coordinate. Make sure
+     * 					the array has the correct size (2 elements), otherwise you will not get a result!
+     *
+     * @return <code>true</code> if calculation was successful, else <code>false</code>
+     */
+    public static boolean findNearestPointOnStreet(Street street, int x, int y, int[] result){
+        if(result.length == 2){
+            int p1_x = street.getStartNode().getX();
+            int p1_y = street.getStartNode().getY();
+            int p2_x = street.getEndNode().getX();
+            int p2_y = street.getEndNode().getY();
+            long tmp1 = p2_x-p1_x;
+            long tmp2 = p2_y-p1_y;
+            long tmp3 = (tmp1*tmp1 + tmp2*tmp2);
+            if(tmp3 != 0){
+                double u = (((double)x-p1_x)*((double)p2_x-p1_x)+((double)y-p1_y)*((double)p2_y-p1_y))/tmp3;
+                if (u >= 1.0){		//point is "outside" the line and nearest to the EndNode
+                    result[0] = p2_x;
+                    result[1] = p2_y;
+                }
+                else if (u <= 0.0){		//point is "outside" the line and nearest to the StartNode
+                    result[0] = p1_x;
+                    result[1] = p1_y;
+                }
+                else{
+                    double tmp4 = p1_x + u * tmp1;
+                    result[0] = (int) (tmp4 + 0.5);	//manual rounding
+                    tmp4 = p1_y + u * tmp2;
+                    result[1] = (int) (tmp4 + 0.5);
+                }
+            } else {	// not a real street...EndNode and StartNode have the same coordinates!
+                result[0] = p1_x;
+                result[1] = p1_y;
+            }
+            return true;
+        } else return false;
+    }
+
+    /**
      * Recalculates start and end points of a line so that the line is shorter or longer than before.
      *
      * @param startPoint	the start point. x coordinate is expected in <code>startPoint[0]</code>, y in <code>startPoint[1]</code>.
