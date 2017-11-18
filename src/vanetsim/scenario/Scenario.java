@@ -41,6 +41,9 @@ public class Scenario {
      * Empty, private constructor in order to disable instancing.
      */
     private Scenario() {
+
+        Debug.whereru(this.getClass().getName(),Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(),"Scenario()",Debug.ISLOGGED);
     }
 
 

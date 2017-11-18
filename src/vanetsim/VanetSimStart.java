@@ -37,7 +37,7 @@ public class VanetSimStart implements Runnable{
     private static MainControlPanel controlPanel_;
 
 
-    /** A reference to the progress bar. */
+    /** A reference to the progress bar. 視窗中央的等待顯示進度條訊息 */
     private static ProgressOverlay progressBar_;
 
 
@@ -100,7 +100,17 @@ public class VanetSimStart implements Runnable{
          */
         ///////////////////////////////////////
         progressBar_ = new ProgressOverlay();
-        if(Runtime.getRuntime().maxMemory() < 120000000) ErrorLog.log(Messages.getString("StartGUI.detectedLowMemory"), 6, VanetSimStart.class.getName(), "run", null); //$NON-NLS-1$ //$NON-NLS-2$
+        /**
+         * totalMemory() ：回傳 Java 虛擬機中記憶體的大小
+         * maxMemory() ：回傳 Java 虛擬機中試圖使用記憶體的最大量。
+         * freeMemory()  ：回傳 Java 虛擬機中可用記憶體的大小。
+         * */
+
+        if(Runtime.getRuntime().maxMemory() < 120000000) {
+
+            ErrorLog.log(Messages.getString("StartGUI.detectedLowMemory"), 6, VanetSimStart.class.getName(), "run", null); //$NON-NLS-1$ //$NON-NLS-2$
+
+        }
         URL appicon = ClassLoader.getSystemResource("vanetsim/images/appicon.gif"); //$NON-NLS-1$
         if (appicon != null){
             mainFrame_.setIconImage(Toolkit.getDefaultToolkit().getImage(appicon));
@@ -135,6 +145,7 @@ public class VanetSimStart implements Runnable{
 
         Map.getInstance().initNewMap(100000, 100000, 10000, 10000);
         Map.getInstance().signalMapLoaded();
+
         /** --------------- 2017/11/15_0030 程式debug到此為止 ----------------- */
 
         ReRenderManager.getInstance().start();

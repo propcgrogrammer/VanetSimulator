@@ -1,7 +1,10 @@
 package vanetsim.gui;
 
 import vanetsim.ErrorLog;
+import vanetsim.VanetSimStart;
 import vanetsim.debug.Debug;
+import vanetsim.gui.helpers.MouseClickManager;
+import vanetsim.gui.helpers.ReRenderManager;
 import vanetsim.localization.Messages;
 
 import javax.swing.*;
@@ -53,8 +56,6 @@ public final class DrawingArea extends JComponent implements MouseWheelListener,
     private BufferedImage scaleImage_ = null;
 
 
-
-
     /** A temporary <code>Graphics2D</code> based on <code>temporaryImage</code>. */
     private Graphics2D temporaryG2d_ = null;
 
@@ -77,6 +78,7 @@ public final class DrawingArea extends JComponent implements MouseWheelListener,
 
         drawManualBuffered_ = drawManualBuffered;
         setBackground(Color.white);
+        setToolTipText("未載入地圖");
         setDoubleBuffered(useDoubleBuffer);
         setOpaque(true);
         setIgnoreRepaint(false);
@@ -160,49 +162,197 @@ public final class DrawingArea extends JComponent implements MouseWheelListener,
         renderer_.drawScale(scaleImage_);
     }
 
+    /**
+     * This function gets called when a property value changes such that size, location or internal layout of
+     * change. We then need to check if our <code>BufferdImages</code> still have the correct size and create new ones if needed!
+     *
+     * revalidate() : 改變大小通知
+     * 當 container 中加入新的元件或改變元件大小, 需要通知 container 做調整時, 呼叫 revalidate.
+     */
+    public void revalidate(){
+        super.revalidate();
+        if(this.getWidth() > 0 && this.getHeight() > 0 && (this.getWidth() != streetsImage_.getWidth() || this.getHeight() != streetsImage_.getHeight())){
+            this.prepareBufferedImages();
+        }
+    }
 
+    /**
+     * Setting the <code>RepaintManager</code> like seen
+     * <a href=http://java.sun.com/products/java-media/2D/samples/index.html>on the official examples for Java2D</a>
+     * (link last time checked on 12.08.2008).<br>
+     * This imitates the "On Screen" method used there and in some cases drastically improves performance (even when
+     * DoubleBuffering of this <code>JComponent</code> is off the DoubleBuffering might still be on because the
+     * DoubleBuffering is inherited from the main <code>JFrame</code>!).
+     *
+     * @param x			the x coordinate for the bounding box to repaint
+     * @param y			the y coordinate for the bounding box to repaint
+     * @param width		the width
+     * @param height	the height
+     */
+    public void paintImmediately(int x, int y, int width, int height){
+        RepaintManager repaintManager = null;
+        boolean save = true;
+        if (!isDoubleBuffered()) {
+            repaintManager = RepaintManager.currentManager(this);
+            save = repaintManager.isDoubleBufferingEnabled();
+            repaintManager.setDoubleBufferingEnabled(false);
+        }
+        super.paintImmediately(x, y, width, height);
+
+        if (repaintManager != null) repaintManager.setDoubleBufferingEnabled(save);
+    }
+
+
+
+    /**
+     * Does nothing. Just necessary to implement the <code>KeyListener</code>.
+     *
+     * @param e	the <code>KeyEvent</code>
+     *
+     * @see java.awt.event.KeyListener#keyTyped(java.awt.event.KeyEvent)
+     */
     @Override
     public void keyTyped(KeyEvent e) {
 
     }
 
+    /**
+     * Allows panning through pressing the keyboard arrows.
+     *
+     * @param e	the <code>KeyEvent</code>
+     *
+     * @see java.awt.event.KeyListener#keyPressed(java.awt.event.KeyEvent)
+     */
     @Override
     public void keyPressed(KeyEvent e) {
 
-    }
+        int keycode = e.getKeyCode();
+        if(keycode == 38){
+            renderer_.pan('u');
+            ReRenderManager.getInstance().doReRender();
+        } else if (keycode == 40){
+            renderer_.pan('d');
+            ReRenderManager.getInstance().doReRender();
+        } else if (keycode == 37){
+            renderer_.pan('l');
+            ReRenderManager.getInstance().doReRender();
+        } else if (keycode == 39){
+            renderer_.pan('r');
+            ReRenderManager.getInstance().doReRender();
+        }
 
+    }
+    /**
+     * Does nothing. Just necessary to implement the <code>KeyListener</code>.
+     *
+     * @param e	the <code>KeyEvent</code>
+     *
+     * @see java.awt.event.KeyListener#keyReleased(java.awt.event.KeyEvent)
+     */
     @Override
     public void keyReleased(KeyEvent e) {
 
     }
-
+    /**
+     * Does nothing. Just necessary to implement the <code>MouseListener</code>.
+     *
+     * @param e	the <code>MouseEvent</code>
+     *
+     * @see java.awt.event.MouseListener#mouseClicked(java.awt.event.MouseEvent)
+     */
     @Override
     public void mouseClicked(MouseEvent e) {
 
     }
 
+    /**
+     * Tracks clicks in order to get focus and allow to get information about points on the map or edit something on the map.
+     * The work itself is done in the <code>MousedragManager</code>.
+     *
+     * @param e	the <code>MouseEvent</code>
+     *
+     * @see java.awt.event.MouseListener#mousePressed(java.awt.event.MouseEvent)
+     */
     @Override
     public void mousePressed(MouseEvent e) {
 
+        if(e.getButton() == MouseEvent.BUTTON1){
+            requestFocusInWindow();
+            MouseClickManager.getInstance().signalPressed(e.getX(), e.getY());
+        }
+
     }
 
+    /**
+     * Used for panning through mousedragging through the <code>MousedragManager</code>.
+     *
+     * @param e	the <code>MouseEvent</code>
+     *
+     * @see java.awt.event.MouseListener#mouseReleased(java.awt.event.MouseEvent)
+     */
     @Override
     public void mouseReleased(MouseEvent e) {
 
+        if(e.getButton() == MouseEvent.BUTTON1){
+            MouseClickManager.getInstance().signalReleased(e.getX(), e.getY());
+        }
+
     }
 
+    /**
+     * Notifies the <code>MouseDragManager</code> that mouse entered this area.
+     *
+     * @param e	the <code>MouseEvent</code>
+     *
+     * @see java.awt.event.MouseListener#mouseEntered(java.awt.event.MouseEvent)
+     */
     @Override
     public void mouseEntered(MouseEvent e) {
 
+        requestFocusInWindow();
+        MouseClickManager.getInstance().setActive(true);
+
     }
 
+    /**
+     * Notifies the <code>MouseDragManager</code> that mouse left this area.
+     *
+     * @param e	the <code>MouseEvent</code>
+     *
+     * @see java.awt.event.MouseListener#mouseExited(java.awt.event.MouseEvent)
+     */
     @Override
     public void mouseExited(MouseEvent e) {
 
+        MouseClickManager.getInstance().setActive(false);
     }
 
+    /**
+     * Listener for mouse scrolls.
+     *
+     * @param e	the <code>MouseWheelEvent</code>
+     *
+     * @see java.awt.event.MouseWheelListener#mouseWheelMoved(java.awt.event.MouseWheelEvent)
+     */
     @Override
     public void mouseWheelMoved(MouseWheelEvent e) {
+
+        if (e.getScrollType() == MouseWheelEvent.WHEEL_UNIT_SCROLL && e.getUnitsToScroll() != 0){
+            int scrollValue = e.getUnitsToScroll();
+            double newzoom = renderer_.getMapZoom();
+            if(scrollValue > 0){
+                for(int i= 0; i < scrollValue; i+=3){
+                    newzoom -= newzoom/ZOOM_VALUE;
+                }
+            } else {
+                for(int i= 0; i > scrollValue; i-=3){
+                    newzoom += newzoom/ZOOM_VALUE;
+                }
+            }
+            renderer_.setMapZoom(newzoom);
+            VanetSimStart.getMainControlPanel().getSimulatePanel().setZoomValue((int)Math.round(Math.log(renderer_.getMapZoom()*1000)*50));
+            ReRenderManager.getInstance().doReRender();
+        }
 
     }
 }

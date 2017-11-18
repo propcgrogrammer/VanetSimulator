@@ -3,6 +3,7 @@ package vanetsim.gui.helpers;
 import vanetsim.VanetSimStart;
 import vanetsim.debug.Debug;
 import vanetsim.gui.DrawingArea;
+import vanetsim.gui.Renderer;
 import vanetsim.gui.controlpanels.EditControlPanel;
 import vanetsim.gui.controlpanels.ReportingControlPanel;
 import vanetsim.map.Node;
@@ -10,6 +11,7 @@ import vanetsim.map.Street;
 import vanetsim.scenario.Vehicle;
 
 import java.awt.*;
+import java.awt.geom.Point2D;
 import java.text.DecimalFormat;
 
 /**
@@ -120,6 +122,69 @@ public class MouseClickManager extends Thread{
         Debug.callFunctionInfo(this.getClass().getName(), "MouseClickManager()", Debug.ISLOGGED);
     }
 
+
+    /**
+     * Signals this manager that the mouse was pressed. If the edit mode is currently active, the click is forwarded to the edit panel.
+     *
+     * @param x	the x coordinate where mouse was pressed
+     * @param y	the y coordinate where mouse was pressed
+     */
+    public synchronized void signalPressed(int x, int y){
+        try{
+            Point2D.Double mapposition_source = new Point2D.Double(0,0);
+            Renderer.getInstance().getTransform().inverseTransform(new Point2D.Double(x,y), mapposition_source);
+            boolean onEditingTab;
+            if(VanetSimStart.getMainControlPanel().getSelectedTabComponent() instanceof EditControlPanel) onEditingTab = true;
+            else onEditingTab = false;
+            if(editPanel_.getEditMode() && onEditingTab){	//editing enabled? then forward the transformed coordinates to the editing panel
+                editPanel_.receiveMouseEvent((int)Math.round(mapposition_source.getX()),(int)Math.round(mapposition_source.getY()));
+            } else if(reportPanel_.isInMonitoredMixZoneEditMode()){
+                reportPanel_.receiveMouseEvent((int)Math.round(mapposition_source.getX()),(int)Math.round(mapposition_source.getY()));
+            } else {
+                waitingTime_ = 0;	//to enable cursor change (cursor changes to indicate dragging)
+                pressedX_ = (int)StrictMath.floor(0.5 + mapposition_source.getX());
+                pressedY_ = (int)StrictMath.floor(0.5 + mapposition_source.getY());
+                pressTime_ = System.currentTimeMillis();
+                releaseTime_ = pressTime_;
+            }
+        } catch (Exception e){}
+    }
+
+    /**
+     * Signals this manager that the mouse was released (used for dragging).
+     *
+     * @param x	the x coordinate where mouse was released
+     * @param y	the y coordinate where mouse was released
+     */
+    public synchronized void signalReleased(int x, int y){
+        boolean onEditingTab;
+        if(VanetSimStart.getMainControlPanel().getSelectedTabComponent() instanceof EditControlPanel) onEditingTab = true;
+        else onEditingTab = false;
+        if((!editPanel_.getEditMode() || !onEditingTab) && !reportPanel_.isInMonitoredMixZoneEditMode()){	//dragging only enabled when not editing!
+            try{
+                Point2D.Double mapposition_source = new Point2D.Double(0,0);
+                Renderer.getInstance().getTransform().inverseTransform(new Point2D.Double(x,y), mapposition_source);
+                waitingTime_ = -1;
+                releasedX_ = (int)StrictMath.floor(0.5 + mapposition_source.getX());
+                releasedY_ = (int)StrictMath.floor(0.5 + mapposition_source.getY());
+                releaseTime_ = System.currentTimeMillis();
+                if(drawArea_ != null) drawArea_.setCursor(defaultCursor_);
+            } catch (Exception e){}
+        }
+    }
+
+    /**
+     * Sets the value for the <code>isActive</code> variable.
+     *
+     * @param active	<code>true</code> to signal this thread that the DrawingArea has been entered,<code>false</code> to signal that the area was left
+     */
+    public void setActive(boolean active){
+        active_ = active;
+        if(active_ == false && drawArea_ != null){
+            waitingTime_ = -1;
+            drawArea_.setCursor(defaultCursor_);	//to be sure that cursor is right if leaving the area
+        }
+    }
 
     /**
      * Cleans markings so that objects can be deleted through garbage collector.

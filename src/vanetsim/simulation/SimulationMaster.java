@@ -130,12 +130,17 @@ public class SimulationMaster extends Thread {
 
         Debug.detailedInfo("get regionCountX/regionCountY from Map", Debug.ISLOGGED);
 
+
+        /** ------------ 地圖分析 （包含區分幾個區塊/每個執行緒管理幾個區塊）---------------- */
+
+        /** 若地圖未載入時（Map物件為null），其regionCountX 和 regionCountY 為 0 */
         long regionCountX = Map.getInstance().getRegionCountX();
         long regionCountY = Map.getInstance().getRegionCountY();
 
         /** 每個執行緒管理幾個區域 */
         double regionsPerThread = regionCountX * regionCountY / (double)threads;
-        System.out.println("DEBUG : regionsPerThread =>"+regionsPerThread);
+
+        //System.out.println("DEBUG : regionsPerThread =>"+regionsPerThread);
 
         /** Debug檢查用 */
         /** ============================================================= */
@@ -149,7 +154,9 @@ public class SimulationMaster extends Thread {
 
         /** ============================================================= */
 
+        /** ------------ 地圖分析 （包含區分幾個區塊/每個執行緒管理幾個區塊）---------------- */
 
+        /** ------------ 地圖實際實作 （包含區分幾個區塊/每個執行緒管理幾個區塊）---------------- */
         long count = 0;
         double target = regionsPerThread;
         threads = 0;	// reset to 0, perhaps we're getting more/less because of rounding so we calculate this later!
@@ -208,21 +215,12 @@ public class SimulationMaster extends Thread {
                         /** 啟動執行緒 */
                         tmpWorker.start();
 
-                        /**
-                         * ========= 2017/10/23_2242 新增 =========
-                         */
-//                        ThreadInfo.getInstance().addThreadＳupervise(tmpWorker);
-//                        ThreadInfo.getInstance().start();
-                        /**
-                         * =======================================
-                         */
-
                     } catch (Exception e){
                         ErrorLog.log(Messages.getString("SimulationMaster.errorWorkerThread"), 7, SimulationMaster.class.getName(), "createWorkers", e); //$NON-NLS-1$ //$NON-NLS-2$
                     }
-                    /** 清空 */
+                    /** 當該執行緒所管理的Region陣列存放給WorkThread後清空 */
                     tmpRegions = new ArrayList<Region>();
-                    /** 再次累加執行緒數量，預期達到兩倍CPU核心數量 */
+                    /** 計算下一組執行緒數量 */
                     target += regionsPerThread;
                 }
                 else{
@@ -230,6 +228,7 @@ public class SimulationMaster extends Thread {
                 }
             }
         }
+        /** ------------ 地圖實際實作 （包含區分幾個區塊/每個執行緒管理幾個區塊）---------------- */
         if(tmpRegions.size() > 0){	// remaining items, normally this should never happen!
             ErrorLog.log(Messages.getString("SimulationMaster.regionsRemained"), 6, SimulationMaster.class.getName(), "createWorkers", null); //$NON-NLS-1$ //$NON-NLS-2$
             try{
@@ -256,6 +255,7 @@ public class SimulationMaster extends Thread {
 
         Debug.detailedInfo("use Iterator<WorkerThread> to manage WorkThread", Debug.ISLOGGED);
 
+        /** 使用iterator取出集合內所有的值的方法 */
         Iterator<WorkerThread> iterator = tmpWorkers.iterator();
 
         while(iterator.hasNext() ) {
@@ -365,7 +365,10 @@ public class SimulationMaster extends Thread {
 
         ReportingControlPanel statsPanel = null;
         /** 預設 consoleStart 為 false，故一開始statsPanel會被指定 ReportingControlPanel 物件*/
-        /** ReportingControlPanel 未完整實作 */
+        /** ReportingControlPanel 未完整實作
+         *  於 2017/11/19_0452 完整實作
+         *  ReportingControlPanel 取得的物件已初始化完成
+         * */
         if(!Renderer.getInstance().isConsoleStart()) statsPanel = VanetSimStart.getMainControlPanel().getReportingPanel();
 
         long timeOld = 0;
@@ -393,6 +396,7 @@ public class SimulationMaster extends Thread {
 
                     /** workers_為WorkerThread[]物件 */
                     while(workers_ == null){  /** 當執行緒還未被產生時，產生執行緒 */
+                        /** 初次載入地圖前workers 為 null，之後不為 null 後便不會執行 createWorkers() 方法 */
 
                         Debug.detailedInfo("when workers_ is null", Debug.ISLOGGED);
 
@@ -412,6 +416,7 @@ public class SimulationMaster extends Thread {
 
                             Debug.detailedInfo("use parameter TIME_PER_STEP and threads for createWorkers", Debug.ISLOGGED);
 
+                            /** 依據地圖大小計算並分配每個執行緒所管理的資源 */
                             workers_ = createWorkers(TIME_PER_STEP, threads);
 
                             if(Renderer.getInstance().isConsoleStart()){

@@ -22,7 +22,7 @@ public class ProgressOverlay extends JDialog implements ActionListener {
     /**
      * Instantiates a new progress bar.
      */
-    public ProgressOverlay(){
+    public ProgressOverlay() {
         super(VanetSimStart.getMainFrame());
 
         Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
@@ -30,7 +30,11 @@ public class ProgressOverlay extends JDialog implements ActionListener {
 
         getRootPane().setWindowDecorationStyle(JRootPane.NONE);
         JProgressBar progressBar = new JProgressBar(0, 100);
-        progressBar.setIndeterminate(true);
+
+        /** 當setIndeterminate(true)參數為true，不明確顯示進度條，反之 */
+        progressBar.setIndeterminate(false);
+        progressBar.setValue(50);
+        progressBar.setStringPainted(true);
         setLayout(new BorderLayout());
         add(progressBar, BorderLayout.PAGE_START);
         add(ButtonCreator.getJButton("shutdown.png", "shutdown", Messages.getString("ProgressOverlay.quitProgram"), this), BorderLayout.PAGE_END); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$
@@ -40,8 +44,8 @@ public class ProgressOverlay extends JDialog implements ActionListener {
          *  show出視窗的方法位於setVisible（）底下
          * */
         setVisible(false);
-    }
 
+    }
 
 
     /**

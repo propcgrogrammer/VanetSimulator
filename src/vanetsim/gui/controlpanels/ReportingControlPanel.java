@@ -394,6 +394,16 @@ public class ReportingControlPanel extends JPanel implements ActionListener, Ite
     }
 
     /**
+     * Returns if editing of the monitored mix zone is enabled.
+     *
+     * @return	<code>true</code> if it is enabled, else <code>false</code>
+     */
+    public boolean isInMonitoredMixZoneEditMode(){
+        if(active_ && monitoredBeaconZoneEdit_) return true;
+        else return false;
+    }
+
+    /**
      * Updates the statistics. You need to make sure that the vehicles are not modified while executing this.
      */
     public void updateBeaconInfo(){

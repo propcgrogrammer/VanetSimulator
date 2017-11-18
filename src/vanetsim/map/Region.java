@@ -5,6 +5,7 @@ import vanetsim.gui.Renderer;
 import vanetsim.gui.helpers.PrivacyLogWriter;
 import vanetsim.scenario.RSU;
 import vanetsim.scenario.Vehicle;
+import vanetsim.simulation.WorkerThread;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -76,6 +77,13 @@ public final class Region {
 
     /** An array storing all streets in this region. */
     private Street[] streets_ = new Street[0];		// This has a little bit overhead while loading compared to an ArrayList but requires less memory and is faster when iterating
+
+
+    /** The worker thread this region is associated with. */
+    private WorkerThread thread_ = null;
+
+    /** The number of this region in the worker thread. */
+    private int numberInThread_ = -1;
 
 
     /**
@@ -444,6 +452,17 @@ public final class Region {
             streets_[i].clearLanes();
         }
         vehiclesDirty_ = true;
+    }
+
+    /**
+     * Creates a backlink to the worker thread which computes this region.
+     *
+     * @param thread			the thread
+     * @param numberinThread	the number in the thread
+     */
+    public void createBacklink(WorkerThread thread, int numberinThread){
+        thread_ = thread;
+        numberInThread_ = numberinThread;
     }
 
     /**

@@ -1117,6 +1117,30 @@ public final class Renderer{
         } catch (Exception e){}
     }
 
+    /**
+     * Pans the viewable area.
+     *
+     * @param direction <code>u</code> to pan up, <code>d</code> to pan down, <code>l</code> to pan left, <code>r</code> to pan right
+     */
+    public synchronized void pan(char direction){
+        if(direction == 'u'){
+            panCountY_ += 1;
+            middleY_ -= (drawHeight_/2 / zoom_);
+        }
+        else if(direction == 'd'){
+            panCountY_ -= 1;
+            middleY_ += (drawHeight_/2 / zoom_);
+        }
+        else if(direction == 'l') {
+            panCountX_ += 1;
+            middleX_ -= (drawWidth_/2 / zoom_);
+        } else {
+            panCountX_ -= 1;
+            middleX_ += (drawWidth_/2 / zoom_);
+        }
+        updateParams();
+    }
+
 
     /**
      * Sets a new zooming factor.
