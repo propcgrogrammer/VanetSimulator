@@ -418,6 +418,9 @@ public class SimulationMaster extends Thread {
                             /** 依據地圖大小計算並分配每個執行緒所管理的資源 */
                             workers_ = createWorkers(TIME_PER_STEP, threads);
 
+                            /** 此處強制設定只產生一個執行緒 */
+                            //workers_ = createWorkers(TIME_PER_STEP, 1);
+
                             if(Renderer.getInstance().isConsoleStart()){
                                 Renderer.getInstance().setMapZoom(0.4999999999);
                                 VanetSimStart.getMainControlPanel().getSimulatePanel().setZoomValue((int)Math.round(Math.log(Renderer.getInstance().getMapZoom()*1000)*50));

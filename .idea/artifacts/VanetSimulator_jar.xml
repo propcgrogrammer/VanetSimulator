@@ -1,0 +1,12 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="VanetSimulator:jar">
+    <output-path>$PROJECT_DIR$/out/Artifacts</output-path>
+    <root id="archive" name="VanetSimulator.jar">
+      <element id="module-output" name="VanetSimulator" />
+      <element id="library" level="project" name="java" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/externaljars/staxmate-with-stax2-1.3.0.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/externaljars/substance.jar" path-in-jar="/" />
+      <element id="extracted-dir" path="$PROJECT_DIR$/externaljars/wstx-lgpl-3.2.6.jar" path-in-jar="/" />
+    </root>
+  </artifact>
+</component>
