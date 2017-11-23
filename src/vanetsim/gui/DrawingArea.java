@@ -78,7 +78,6 @@ public final class DrawingArea extends JComponent implements MouseWheelListener,
 
         drawManualBuffered_ = drawManualBuffered;
         setBackground(Color.white);
-        setToolTipText("未載入地圖");
         setDoubleBuffered(useDoubleBuffer);
         setOpaque(true);
         setIgnoreRepaint(false);

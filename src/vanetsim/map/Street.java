@@ -30,6 +30,11 @@ public final class Street {
     /** The region this street is primarily assigned to. */
     private final Region mainRegion_;
 
+    /** The lane from startNode to endNode. */
+    private final LaneContainer startToEndLane_ = new LaneContainer(true);
+
+    /** The lane from endNode to startNode. */
+    private final LaneContainer endToStartLane_ = new LaneContainer(false);
 
 
     /** An identifier for this street. */
@@ -217,7 +222,28 @@ public final class Street {
      * @param oneway	<code>0</code>=twoway-street, <code>1</code>=oneway from startNode to endNode, else: oneway from endNode to startNode
      */
     public void changeOneWay(int oneway){
-        /** 待新增 */
+        /** 待新增
+         *  於 2017/11/22_1533 完成實作
+         * */
+
+        startNode_.delOutgoingStreet(this);
+        endNode_.delOutgoingStreet(this);
+        if(oneway == 0){
+            oneway_ = false;
+            startNode_.addOutgoingStreet(this);
+            endNode_.addOutgoingStreet(this);
+        } else if (oneway == 1){
+            oneway_ = true;
+            startNode_.addOutgoingStreet(this);
+            endNode_.delOutgoingStreet(this);
+        } else {
+            oneway_ = true;
+            Node tmpNode = endNode_;		//swap nodes
+            endNode_ = startNode_;
+            startNode_ = tmpNode;
+            startNode_.addOutgoingStreet(this);
+            endNode_.delOutgoingStreet(this);
+        }
     }
 
     /**
@@ -249,8 +275,9 @@ public final class Street {
      * @return the first lane object
      */
     public LaneObject getFirstLaneObject(boolean direction){
-        /** 待新增 */
-        return null;
+
+        if(direction) return startToEndLane_.getHead();
+        else return endToStartLane_.getHead();
     }
 
     /**
@@ -263,8 +290,9 @@ public final class Street {
      * @return the last lane object
      */
     public LaneObject getLastLaneObject(boolean direction){
-        /** 待新增 */
-        return null;
+
+        if(direction) return startToEndLane_.getTail();
+        else return endToStartLane_.getTail();
     }
 
     /**
@@ -275,7 +303,8 @@ public final class Street {
      * 					endNode to startNode
      */
     public void addLaneObject(LaneObject object, boolean direction){
-        /** 待新增 */
+        if(direction) startToEndLane_.addSorted(object);
+        else endToStartLane_.addSorted(object);
     }
 
     /**
@@ -286,7 +315,8 @@ public final class Street {
      * 					endNode to startNode
      */
     public void delLaneObject(LaneObject object, boolean direction){
-        /** 待新增 */
+        if(direction) startToEndLane_.remove(object);
+        else endToStartLane_.remove(object);
     }
 
     /**
@@ -298,14 +328,16 @@ public final class Street {
      * @param newPosition	the new position of the object
      */
     public void updateLaneObject(LaneObject object, boolean direction, double newPosition){
-        /** 待新增 */
+        if(direction) startToEndLane_.updatePosition(object, newPosition);
+        else endToStartLane_.updatePosition(object, newPosition);
     }
 
     /**
      * Clears all objects from the lanes container.
      */
     public void clearLanes(){
-        /** 待新增 */
+        startToEndLane_.clear();
+        endToStartLane_.clear();
     }
 
     /**

@@ -40,8 +40,8 @@ public final class A_Star_Node implements Comparable<Object>{
 	 */
 	public A_Star_Node(Node realNode, double f, int counter){
 		
-		Debug.whereru(this.getClass().getName(), true);
-		Debug.callFunctionInfo(this.getClass().getName(), "A_Star_Node(Node realNode, double f, int counter)", true);
+		Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+		Debug.callFunctionInfo(this.getClass().getName(), "A_Star_Node(Node realNode, double f, int counter)", Debug.ISLOGGED);
 		
 		counter_ = counter;
 		realNode_ = realNode;

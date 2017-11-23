@@ -34,8 +34,8 @@ public final class OSMNode{
      */
     public OSMNode(double latitude, double longitude){
 
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "OSMNode(double latitude, double longitude)", true);
+        Debug.whereru(this.getClass().getName(),Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "OSMNode(double latitude, double longitude)", Debug.ISLOGGED);
 
         latitude_ = latitude;
         longitude_ = longitude;
@@ -51,6 +51,11 @@ public final class OSMNode{
      * @param hasTrafficSignal if node has a traffic signal
      */
     public OSMNode(double latitude, double longitude, boolean hasTrafficSignal){
+
+        Debug.whereru(this.getClass().getName(),Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "OSMNode(double latitude, double longitude, boolean hasTrafficSignal)", Debug.ISLOGGED);
+
+
         latitude_ = latitude;
         longitude_ = longitude;
 

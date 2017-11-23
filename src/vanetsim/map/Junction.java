@@ -1,7 +1,19 @@
 package vanetsim.map;
 
 import vanetsim.debug.Debug;
+import vanetsim.gui.Renderer;
+import vanetsim.scenario.LaneObject;
+import vanetsim.scenario.Vehicle;
 
+/**
+ * A junction which always belongs to one specific node. If vehicles move from one priority street to another, they don't have to wait.
+ * Otherwise one vehicle can pass this junction every JUNCTION_PASS_INTERVAL. Vehicles coming from priority streets are preferred to
+ * pass this junction.
+ * <br><br>
+ * To store the rules, one-dimensional arrays are used as they are very efficient here. Originally, a double-dimensional IdentityHashMap
+ * was used but they need more RAM and are in most cases slower as there are only relatively few junction rules and linear searching
+ * through the arrays is faster than the IdentityHashMap-overhead with autoboxing, function calls and so on.
+ */
 public class Junction {
 
 
@@ -11,14 +23,25 @@ public class Junction {
      * /////////////////////////////////////
      */
 
+    /** For passing a node, the needed distance is calculated by multiplying
+     * the max. speed of the street with this factor. Measured in seconds. */
+    private static final double JUNCTION_PASS_TIME_FREE = 2.5;
+
+    /** The interval for cleaning up the junction queues. */
+    private static final int JUNCTION_QUEUES_CLEANUP_INTERVAL = 1000;
+
+    /** The maximum time in milliseconds to wait for a vehicle to pass the junction. If a vehicle
+     * doesn't signal that it has passed the junction within this time, another vehicle gets the permission! */
+    private static final int MAXIMUM_TIME_ON_JUNCTION = 2500;
+
+    /** A static reference to the renderer. */
+    private static final Renderer renderer_ = Renderer.getInstance();
+
     /** The node this junction belongs to. */
     private final Node node_;
 
     /** An array with all priority street */
     private final Street[] priorityStreets_;
-
-    /** The priorities for the junction rules. */
-    private int[] rulesPriorities_ = null;
 
     /** The source nodes for the junction rules. */
     private Node[] rulesSourceNodes_ = null;
@@ -26,6 +49,37 @@ public class Junction {
     /** The target nodes for the junction rules. */
     private Node[] rulesTargetNodes_ = null;
 
+    /** The priorities for the junction rules. */
+    private int[] rulesPriorities_ = null;
+
+    /** A queue for the junction if more than one vehicle arrives. This is used for priority 3 streets (left turnoff from priority street). */
+    private JunctionQueue junctionQueuePriority3_ = new JunctionQueue();
+
+    public JunctionQueue getJunctionQueuePriority3(){return junctionQueuePriority3_;}
+
+    /** A queue for the junction if more than one vehicle arrives This is used for priority 4 streets (normal turnoff). */
+    private JunctionQueue junctionQueuePriority4_ = new JunctionQueue();
+
+    public JunctionQueue getJunctionQueuePriority4(){return junctionQueuePriority4_;}
+
+    /** The vehicle which is allowed to pass the junction in this step. Used against synchronization problems. */
+    public Vehicle vehicleAllowedThisStep_ = null;
+
+    /** When (in simulation time) the vehicleAllowedThisStep-variable was last set. */
+    public int vehicleAllowedSetTime_ = 0;
+
+    /** If a vehicle is currently on the junction so that no other one may go over it. */
+    private boolean vehicleOnJunction_ = false;
+
+    /** Since when (in simulation time) a vehicle is on the junction. */
+    private int vehicleOnJunctionSince_ = -1;
+
+    /** When (in simulation time) the next cleanup on the junction queues will be done.*/
+    private int nextJunctionQueueCleanUp_ = JUNCTION_QUEUES_CLEANUP_INTERVAL;
+
+    /** Traffic Light*/
+
+    private TrafficLight trafficLight_ = null;
 
 
 
@@ -49,6 +103,147 @@ public class Junction {
         node_ = node;
         priorityStreets_ = priorityStreets;
 
+    }
+
+    /**
+     * Returns if a vehicle may pass a Traffic Light.
+     *
+     * @param vehicle	the vehicle
+     * @param tmpStreet	the street
+     * @param nextNode	the next node the vehicle will go to
+     *
+     * @return <code>true</code> if passing is allowed, else <code>false</code>
+     */
+    public synchronized boolean canPassTrafficLight(Vehicle vehicle, Street tmpStreet, Node nextNode){
+        //first check if there is a traffic light on this junction
+        //	if(vehicle.getCurDirection() tmpStreet.)
+        if(node_.isHasTrafficSignal_()){
+            if(tmpStreet.getStartNode().equals(node_) && tmpStreet.getStartNodeTrafficLightState() < 1) return true;
+            else if(tmpStreet.getEndNode().equals(node_) && tmpStreet.getEndNodeTrafficLightState() < 1) return true;
+        }
+        return false;
+    }
+
+
+    /**
+     * Adds a waiting vehicle to the junction.<br>
+     * Note: This function sets the vehicle which is allowed to pass in the current simulation step. Thus, it is
+     * absolutely necessary, that this function is the first one in each step which is called on this object!
+     *
+     * @param vehicle	the vehicle
+     * @param priority	the priority of the vehicle to pass this junction
+     */
+    public synchronized void addWaitingVehicle(Vehicle vehicle, int priority){
+        int curTime = renderer_.getTimePassed();
+        if(curTime > vehicleAllowedSetTime_){		// Sets the vehicle which will be allowed to pass in the current step.
+            vehicleAllowedSetTime_ = curTime;
+            if(vehicleOnJunction_ && vehicleOnJunctionSince_ > curTime - MAXIMUM_TIME_ON_JUNCTION) vehicleAllowedThisStep_ = null;
+            else{
+                vehicleAllowedThisStep_ = junctionQueuePriority3_.getFirstVehicle();
+                if(vehicleAllowedThisStep_ == null) vehicleAllowedThisStep_ = junctionQueuePriority4_.getFirstVehicle();
+            }
+        }
+        if(curTime >= nextJunctionQueueCleanUp_){
+            nextJunctionQueueCleanUp_ = curTime + JUNCTION_QUEUES_CLEANUP_INTERVAL;
+            junctionQueuePriority3_.cleanUp();
+            junctionQueuePriority4_.cleanUp();
+        }
+        if(priority == 3) junctionQueuePriority3_.addVehicle(vehicle);
+        else junctionQueuePriority4_.addVehicle(vehicle);
+
+    }
+
+    /**
+     * Returns if a vehicle may pass. Passing is only allowed every 2,5s and if there's no vehicle coming from the priority streets.
+     *
+     * @param vehicle	the vehicle
+     * @param priority	the priority of the vehicle to pass this junction
+     * @param nextNode	the next node the vehicle will go to
+     *
+     * @return <code>true</code> if passing is allowed, else <code>false</code>
+     */
+    public synchronized boolean canPassJunction(Vehicle vehicle, int priority, Node nextNode){
+        if(vehicleAllowedThisStep_ == vehicle){
+            Street[] outgoingStreets;
+            Street tmpStreet, tmpStreet2;
+            LaneObject tmpLaneObject;
+            Node nextNode2 = null;
+            boolean tmpDirection;
+            double distance, neededFreeDistance;
+            int i;
+
+            //check incoming priority streets if they are free
+
+            //check if priority streets have enough space
+            for(int j = 0; j < priorityStreets_.length; ++j){
+                tmpStreet = priorityStreets_[j];
+                if(tmpStreet != vehicle.getCurStreet() && (priority != 4 || (tmpStreet.getStartNode() != nextNode && tmpStreet.getEndNode() != nextNode))){
+                    if(tmpStreet.getStartNode() == node_) tmpDirection = false;
+                    else tmpDirection = true;
+                    neededFreeDistance = JUNCTION_PASS_TIME_FREE * tmpStreet.getSpeed();
+                    LaneObject previous = tmpStreet.getLastLaneObject(tmpDirection);
+                    distance = tmpStreet.getLength();
+                    if(previous != null){
+                        if(previous.getCurLane() == 1){
+                            if((tmpDirection && tmpStreet.getLength()-previous.getCurPosition() < neededFreeDistance) || (!tmpDirection && previous.getCurPosition() < neededFreeDistance)){
+                                if(previous.getCurSpeed() > 400) return false;
+                            }
+                        } else {	// need to search
+                            tmpLaneObject = previous.getPrevious();
+                            while(tmpLaneObject != null){
+                                if(tmpLaneObject.getCurLane() == 1){
+                                    if((tmpDirection && tmpStreet.getLength()-tmpLaneObject.getCurPosition() < neededFreeDistance) || (!tmpDirection && tmpLaneObject.getCurPosition() < neededFreeDistance)){
+                                        return false;
+                                    }
+                                    break;	// only check the first on our lane!
+                                }
+                                tmpLaneObject = tmpLaneObject.getPrevious();
+                            }
+                        }
+                    }
+                    if(tmpStreet.getLength() < neededFreeDistance){
+                        while(true){
+                            if(tmpDirection) nextNode2 = tmpStreet.getStartNode();
+                            else nextNode2 = tmpStreet.getEndNode();
+                            if(nextNode2.getCrossingStreetsCount() != 2) break;		// don't handle junctions!
+                            else outgoingStreets = nextNode2.getCrossingStreets();
+                            for(i = 0; i < outgoingStreets.length; ++i){
+                                tmpStreet2 = outgoingStreets[i];
+                                if(tmpStreet2 != tmpStreet){
+                                    tmpStreet = tmpStreet2;
+                                    if (tmpStreet2.getStartNode() == nextNode2){
+                                        tmpDirection = true;
+                                        break;		// found street we want to => no need to look through others
+                                    } else {
+                                        tmpDirection = false;
+                                        break;		// found street we want to => no need to look through others
+                                    }
+                                }
+                            }
+
+                            tmpLaneObject = tmpStreet.getLastLaneObject(tmpDirection);
+                            while(tmpLaneObject != null){
+                                if(tmpLaneObject.getCurLane() == 1){
+                                    if((tmpDirection && tmpStreet.getLength()-tmpLaneObject.getCurPosition()+distance < neededFreeDistance) || (!tmpDirection && tmpLaneObject.getCurPosition()+distance < neededFreeDistance)){
+                                        return false;
+                                    }
+                                    break;
+                                }
+                                tmpLaneObject = tmpLaneObject.getNext();
+                            }
+
+                            distance += tmpStreet.getLength();
+                            if(distance > neededFreeDistance) break;
+                        }
+                    }
+                }
+            }
+            if(priority == 3) junctionQueuePriority3_.delFirstVehicle();
+            else junctionQueuePriority4_.delFirstVehicle();
+            vehicleOnJunction_ = true;
+            vehicleOnJunctionSince_ = renderer_.getTimePassed();
+            return true;
+        } else return false;
     }
 
     /**
@@ -92,6 +287,25 @@ public class Junction {
         rulesPriorities_ = newArray2;
     }
 
+    public Street[] getPriorityStreets() {
+        return priorityStreets_;
+    }
+
+    /**
+     * Deletes the traffic light on this junction an resets the street values.	 *
+     */
+    public void delTrafficLight(){
+        this.getNode().setTrafficLight_(null);
+        this.getNode().setStreetHasException_(null);
+        Street[] tmpStreets = node_.getCrossingStreets();
+        for(int i = 0; i < tmpStreets.length; i++){
+            if(tmpStreets[i].getStartNode() == node_) tmpStreets[i].setStartNodeTrafficLightState(-1);
+            else tmpStreets[i].setEndNodeTrafficLightState(-1);
+        }
+
+        node_.setHasTrafficSignal_(false);
+    }
+
     /**
      * Gets the priority for going over this node.
      *
@@ -113,5 +327,12 @@ public class Junction {
 
     public Node getNode() {
         return node_;
+    }
+
+    /**
+     * Allows another vehicle to pass the junction by setting vehicleOnJunction_ to <code>false</code>.
+     */
+    public void allowOtherVehicle(){
+        vehicleOnJunction_ = false;
     }
 }

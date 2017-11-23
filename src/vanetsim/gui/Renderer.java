@@ -1141,6 +1141,18 @@ public final class Renderer{
         updateParams();
     }
 
+    /**
+     * Pans the viewable area.
+     *
+     * @param x the value for how far to pan in x direction (in map scale!)
+     * @param y the value for how far to pan in y direction (in map scale!)
+     */
+    public synchronized void pan(double x, double y){
+        middleX_ += x;
+        middleY_ += y;
+        updateParams();
+    }
+
 
     /**
      * Sets a new zooming factor.

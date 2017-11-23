@@ -523,6 +523,49 @@ public final class Region {
         return y_;
     }
 
+
+    /**
+     * Function to add a vehicle to this region.
+     *
+     * @param vehicle vehicle to add
+     * @param doCheck 	<code>true</code> if a check should be made if this vehicle already exists; else <code>false</code> to skip the test
+     */
+    public synchronized void addVehicle(Vehicle vehicle, boolean doCheck){
+        if(doCheck){
+            if(!vehicles_.contains(vehicle)){
+                vehicles_.add(vehicle);
+                if(thread_ != null) thread_.addChangedRegion(numberInThread_);
+                vehiclesDirty_ = true;
+            }
+        } else {
+            vehicles_.add(vehicle);
+            if(thread_ != null) thread_.addChangedRegion(numberInThread_);
+            vehiclesDirty_ = true;
+        }
+    }
+
+    /**
+     * This function deletes all traffic lights in this region
+     */
+    public void clearTrafficLights(){
+        for(int i = 0; i < nodes_.length; i++){
+            if(nodes_[i].getJunction() != null){
+                nodes_[i].getJunction().delTrafficLight();
+            }
+        }
+    }
+
+    /**
+     * Function to delete a vehicle from this region.
+     *
+     * @param vehicle the vehicle to remove
+     */
+    public synchronized void delVehicle(Vehicle vehicle){
+        vehicles_.remove(vehicle);
+        if(thread_ != null) thread_.addChangedRegion(numberInThread_);
+        vehiclesDirty_ = true;
+    }
+
     /**
      * Function to add a Road-Side-Units to this region.
      *
@@ -550,6 +593,42 @@ public final class Region {
             vehiclesDirty_ = false;
         }
         return vehiclesArray_;
+    }
+
+    /**
+     * Gets the coordinate of the left boundary of this region.
+     *
+     * @return	the coordinate
+     */
+    public int getLeftBoundary(){
+        return leftBoundary_;
+    }
+
+    /**
+     * Gets the coordinate of the right boundary of this region.
+     *
+     * @return	the coordinate
+     */
+    public int getRightBoundary(){
+        return rightBoundary_;
+    }
+
+    /**
+     * Gets the coordinate of the upper boundary of this region.
+     *
+     * @return	the coordinate
+     */
+    public int getUpperBoundary(){
+        return upperBoundary_;
+    }
+
+    /**
+     * Gets the coordinate of the lower boundary of this region.
+     *
+     * @return	the coordinate
+     */
+    public int getLowerBoundary(){
+        return lowerBoundary_;
     }
 
     /**

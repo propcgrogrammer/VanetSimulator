@@ -60,8 +60,8 @@ public class Node {
      */
     public Node(int x, int y) {
 
-        Debug.whereru(this.getClass().getName(), true);
-        Debug.callFunctionInfo(this.getClass().getName(), "Node(int x, int y)", true);
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "Node(int x, int y)", Debug.ISLOGGED);
 
         x_ = x;
         y_ = y;
@@ -86,6 +86,11 @@ public class Node {
      * @param hasTrafficSignal signals if node has a traffic signal
      */
     public Node(int x, int y, boolean hasTrafficSignal) {
+
+        Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+        Debug.callFunctionInfo(this.getClass().getName(), "Node(int x, int y, boolean hasTrafficSignal)", Debug.ISLOGGED);
+
+
         x_ = x;
         y_ = y;
         hasTrafficSignal_ = hasTrafficSignal;
@@ -377,6 +382,16 @@ public class Node {
     }
 
     /**
+     * Gets an array of the streets which are crossing in this node. You will always get an array (never <code>null</code>)
+     * but it might have zero size.
+     *
+     * @return the array
+     */
+    public Street[] getCrossingStreets() {
+        return crossingStreets_;
+    }
+
+    /**
      * Gets an array of the outgoing streets of this node. You will always get an array (never <code>null</code>)
      * but it might have zero size.
      *
@@ -432,6 +447,45 @@ public class Node {
     }
 
     /**
+     * Removes an outgoing street. If the array doesn't contain the street, nothing is done.
+     * Note that this operation is not thread-safe.
+     *
+     * @param street The outgoing street to delete.
+     *
+     * @return <code>true</code> if street was removed, <code>false</code> if the street wasn't in the list
+     */
+    public boolean delOutgoingStreet(Street street){
+        for(int i = 0; i < outgoingStreets_.length; ++i){
+            if(outgoingStreets_[i] == street){
+                Street[] newArray = new Street[outgoingStreets_.length-1];
+                if(i > 0){
+                    System.arraycopy (outgoingStreets_,0,newArray,0,i);
+                    System.arraycopy (outgoingStreets_,i+1,newArray,i,outgoingStreets_.length-i-1);
+                } else System.arraycopy (outgoingStreets_,1,newArray,0,outgoingStreets_.length-1);
+                outgoingStreets_ = newArray;
+                return true;
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * @return the streetHasException_
+     */
+    public int[] getStreetHasException_() {
+        return streetHasException_;
+    }
+
+    /**
+     * @param streetHasException_ the streetHasException_ to set
+     */
+    public void setStreetHasException_(int[] streetHasException_) {
+        this.streetHasException_ = streetHasException_;
+    }
+
+
+    /**
      * ------------- Street 相關 ---------------
      * */
 
@@ -444,6 +498,10 @@ public class Node {
 
     public boolean isHasTrafficSignal_() {
         return hasTrafficSignal_;
+    }
+
+    public void setHasTrafficSignal_(boolean hasTrafficSignal_) {
+        this.hasTrafficSignal_ = hasTrafficSignal_;
     }
 
     /**
@@ -476,6 +534,13 @@ public class Node {
         if(tmpReturn.length() > 0) tmpReturn = tmpReturn.substring(0, tmpReturn.length() - 1);
 
         return tmpReturn;
+    }
+
+    /**
+     * @param trafficLight_ the trafficLight_ to set
+     */
+    public void setTrafficLight_(TrafficLight trafficLight_) {
+        this.trafficLight_ = trafficLight_;
     }
 
     /**

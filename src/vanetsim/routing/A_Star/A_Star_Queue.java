@@ -52,8 +52,8 @@ public final class A_Star_Queue{
 	 */
 	public A_Star_Queue() {
 		
-		Debug.whereru(this.getClass().getName(), true);
-		Debug.callFunctionInfo(this.getClass().getName(), "A_Star_Queue()", true);
+		Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+		Debug.callFunctionInfo(this.getClass().getName(), "A_Star_Queue()", Debug.ISLOGGED);
 		
 		
 		queue_ = new A_Star_Node[100];

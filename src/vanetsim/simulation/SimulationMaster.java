@@ -76,7 +76,7 @@ public class SimulationMaster extends Thread {
 
 
     /**
-     * 同步執行緒（CyclicBarrier）類物件
+     * 同步執行緒（CyclicBarrier）類物件，類似執行緒的中斷點
      */
     /** Synchronization barrier for the start of the working threads. */
     private CyclicBarrier barrierStart_ = null;
@@ -380,7 +380,6 @@ public class SimulationMaster extends Thread {
 
         while(true){
 
-
             try{
                 /** 預設 running_ 和 doOneStep_ 為false，待其中一項被觸發後執行if
                  *  在控制面板下按下執行就會呼叫startThread（）將running_設為true
@@ -440,6 +439,7 @@ public class SimulationMaster extends Thread {
 
                     // wait for all working threads to finish to prevent drawing an inconsistent state!
                     barrierFinish_.await();
+
 
                     // Rendering itself can't be multithreaded and thus must be done here and not in the workers!
                     KnownVehiclesList.setTimePassed(time);

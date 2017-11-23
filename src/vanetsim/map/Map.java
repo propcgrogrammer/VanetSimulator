@@ -236,6 +236,53 @@ public class Map {
     }
 
     /**
+     * Deletes a vehicle from it's region.
+     *
+     * @param vehicle	the vehicle to delete
+     */
+    public void delVehicle(Vehicle vehicle){
+        int regionX = vehicle.getRegionX();
+        int regionY = vehicle.getRegionY();
+        regions_[regionX][regionY].delVehicle(vehicle);
+    }
+
+    /**
+     * Delete every turn-off lane on this map
+     */
+    public void clearTrafficLights(){
+        for(int i = 0; i < regionCountX_; ++i) for(int j = 0; j < regionCountY_; ++j) regions_[i][j].clearTrafficLights();
+    }
+
+    /**
+     * Add a new vehicle to the correct start region. A vehicle can only be in one region and may move to other regions during
+     * the simulation. Although a vehicle is part of a scenario, it's added here as the map knows everything about how to
+     * correctly put it into a region.
+     *
+     * @param vehicle	the vehicle to add
+     */
+    public void addVehicle(Vehicle vehicle){
+        int regionX = vehicle.getX()/regionWidth_;	//implicit rounding (=floor)because of integer values!
+        int regionY = vehicle.getY()/regionHeight_;
+
+        // to prevent "array out of bounds" when vehicle is outside of map
+        if (regionX >= regionCountX_) regionX = regionCountX_ - 1;
+        else if(regionX < 0) regionX = 0;
+        if (regionY >= regionCountY_) regionY = regionCountY_ - 1;
+        else if (regionY < 0) regionY = 0;
+
+        vehicle.setRegion(regions_[regionX][regionY]);
+        regions_[regionX][regionY].addVehicle(vehicle, false);
+    }
+
+    /**
+     * Delete every Vehicle on this map
+     */
+    public void clearVehicles(){
+        Renderer.getInstance().setMarkedVehicle(null);
+        for(int i = 0; i < regionCountX_; ++i) for(int j = 0; j < regionCountY_; ++j) regions_[i][j].cleanVehicles();
+    }
+
+    /**
      * Add a new Road-Side-Unit to the correct region. A RSU can only be in one region.
      *
      * @param rsu	the RSU to add

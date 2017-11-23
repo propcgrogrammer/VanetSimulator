@@ -225,6 +225,44 @@ public final class EditEventControlPanel extends JPanel implements ActionListene
      * @param e	an <code>ActionEvent</code>
      */
     public void actionPerformed(ActionEvent e) {
-        /** 待增加 */
+        /** 待增加
+         *  於 2017/11/22_1700 完整實作
+         * */
+
+        String command = e.getActionCommand();
+        if("addEvent".equals(command)){ //$NON-NLS-1$
+            String item = (String)eventTypeChoice_.getSelectedItem();
+            try{
+                xTextField_.commitEdit();
+                yTextField_.commitEdit();
+                if(Messages.getString("EditEventControlPanel.stopBlocking").equals(item)) EventList.getInstance().addEvent(new StopBlocking(((Number)timeTextField_.getValue()).intValue(),((Number)xTextField_.getValue()).intValue(),((Number)yTextField_.getValue()).intValue())); //$NON-NLS-1$
+                else if(Messages.getString("EditEventControlPanel.startBlocking").equals(item)){ //$NON-NLS-1$
+                    int direction = 0;
+                    String item2 = (String)directionChoice_.getSelectedItem();
+                    if (item2.equals(Messages.getString("EditEventControlPanel.fromStartNode"))) direction = 1; //$NON-NLS-1$
+                    else if (item2.equals(Messages.getString("EditEventControlPanel.fromEndNode"))) direction = -1; //$NON-NLS-1$
+                    EventList.getInstance().addEvent(new StartBlocking(((Number)timeTextField_.getValue()).intValue(),((Number)xTextField_.getValue()).intValue(),((Number)yTextField_.getValue()).intValue(), direction, ((Number)lanesTextField_.getValue()).intValue())); //$NON-NLS-1$
+                }
+                updateList();
+                Renderer.getInstance().ReRender(false, false);
+            } catch (Exception e2) { ErrorLog.log(Messages.getString("EditEventControlPanel.errorCreatingEvent"), 6, getClass().getName(), "actionPerformed", e2);} //$NON-NLS-1$ //$NON-NLS-2$
+        } else if("delEvent".equals(command)){ //$NON-NLS-1$
+            if(list_.getSelectedIndex() > -1){
+                Event deleteEvent = (Event)list_.getSelectedValue();
+                boolean doDelete = true;
+                if(deleteEvent instanceof StartBlocking){
+                    StartBlocking startBlockingEvent = (StartBlocking) deleteEvent;
+                    if (startBlockingEvent.getStopBlockingEvent() != null){
+                        ErrorLog.log(Messages.getString("EditEventControlPanel.deletionOfStartBlockingNotPossible"), 6, getClass().getName(), "delEvent", null); //$NON-NLS-1$ //$NON-NLS-2$
+                        doDelete = false;
+                    }
+                }
+                if(doDelete){
+                    listModel_.remove(list_.getSelectedIndex());
+                    EventList.getInstance().delEvent(deleteEvent);
+                    Renderer.getInstance().ReRender(false, false);
+                }
+            }
+        }
     }
 }

@@ -27,8 +27,8 @@ public class A_Star_LookupTable<K, V>{
 	 */
 	public A_Star_LookupTable(int initialCapacity) {
 		
-		Debug.whereru(this.getClass().getName(), true);
-		Debug.callFunctionInfo(this.getClass().getName(), "A_Star_LookupTable(int initialCapacity)", true);
+		Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
+		Debug.callFunctionInfo(this.getClass().getName(), "A_Star_LookupTable(int initialCapacity)", Debug.ISLOGGED);
 		
 		if (initialCapacity < 0) initialCapacity = 1000;
 

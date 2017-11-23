@@ -5,6 +5,7 @@ import vanetsim.debug.Debug;
 import vanetsim.gui.DrawingArea;
 import vanetsim.gui.Renderer;
 import vanetsim.gui.controlpanels.MainControlPanel;
+import vanetsim.gui.helpers.MouseClickManager;
 import vanetsim.gui.helpers.ProgressOverlay;
 import vanetsim.gui.helpers.ReRenderManager;
 import vanetsim.localization.Messages;
@@ -67,10 +68,6 @@ public class VanetSimStart implements Runnable{
 
         Debug.whereru(this.getClass().getName(), Debug.ISLOGGED);
         Debug.callFunctionInfo(this.getClass().getName(), "VanetSimStart()", Debug.ISLOGGED);
-
-        //	new Statistics("行車速率表").createResultFrame("time vs velocity");
-
-        //	readconfig("./config.txt"); //$NON-NLS-1$
 
     }
 
@@ -149,6 +146,9 @@ public class VanetSimStart implements Runnable{
         /** --------------- 2017/11/15_0030 程式debug到此為止 ----------------- */
 
         ReRenderManager.getInstance().start();
+
+        MouseClickManager.getInstance().setDrawArea(drawarea);
+        MouseClickManager.getInstance().start();
 
 
     }

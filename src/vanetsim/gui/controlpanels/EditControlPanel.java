@@ -184,8 +184,10 @@ public final class EditControlPanel extends JPanel implements ActionListener {
         editChoice_.addActionListener(this);
         editPanel_.add(editChoice_, BorderLayout.PAGE_START);
         editCardPanel_ = new JPanel(new CardLayout());
-        editCardPanel_.add(editSettingsPanel_, "settings"); //$NON-NLS-1$
-        editCardPanel_.add(editStreetPanel_, "street"); //$NON-NLS-1$
+
+        /** 暫時關閉此功能 */
+    //    editCardPanel_.add(editSettingsPanel_, "settings"); //$NON-NLS-1$
+    //    editCardPanel_.add(editStreetPanel_, "street"); //$NON-NLS-1$
         editCardPanel_.add(editTrafficLightsPanel_, "trafficLights"); //$NON-NLS-1$
         editCardPanel_.add(editEventPanel_, "event"); //$NON-NLS-1$
 
@@ -200,7 +202,9 @@ public final class EditControlPanel extends JPanel implements ActionListener {
         tabbedPane_ = new JTabbedPane();
         tabbedPane_.add(Messages.getString("EditVehiclesControlPanel.vehicle1"), editVehiclePanel_);
         tabbedPane_.add(Messages.getString("EditVehiclesControlPanel.vehicle2"), editOneVehiclePanel_);
-        editCardPanel_.add(editAttackerPanel_, "attackers"); //$NON-NLS-1$
+        /** 暫時關閉此功能 */
+    //    editCardPanel_.add(editAttackerPanel_, "attackers"); //$NON-NLS-1$
+
         editCardPanel_.add(tabbedPane_, "vehicles"); //$NON-NLS-1$
         editCardPanel_.add(editLogControlPanel_, "logs"); //$NON-NLS-1$
         editPanel_.add(editCardPanel_, BorderLayout.PAGE_END);
@@ -485,8 +489,11 @@ public final class EditControlPanel extends JPanel implements ActionListener {
             for(int j = 0; j <= regionCountY-1;j++){
                 Region tmpRegion = tmpRegions[i][j];
 
-                /** 待新增 */
+                Node[] mixZones = tmpRegion.getMixZoneNodes();
 
+                for(int k = 0;k < mixZones.length; k++){
+                    if(maxMixRadius < mixZones[k].getMixZoneRadius()) maxMixRadius = mixZones[k].getMixZoneRadius();
+                }
 
             }
         }

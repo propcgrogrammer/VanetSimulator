@@ -405,14 +405,132 @@ public class EditOneVehicleControlPanel extends JPanel implements ActionListener
      */
     public void receiveMouseEvent(int x, int y){
 
-        /** 待新增 */
+        /** 待新增
+         *  於 2017/11/22_1706 完整新增
+         * */
+
+
+        if(editItem_.isSelected() || deleteItem_.isSelected()){
+            //find vehicles near x and y and add those to the vehicle combobox
+            chooseVehicle_.removeActionListener(this); //important: Remove Action listener before removing all comboBox items otherwise the combobox will be buggy
+            chooseVehicle_.removeAllItems();
+            chooseVehicle_.setVisible(false);
+            chooseVehicleLabel_.setVisible(false);
+            Renderer.getInstance().setMarkedVehicle(null);
+
+
+            Region[][] Regions = Map.getInstance().getRegions();
+            int Region_max_x = Map.getInstance().getRegionCountX();
+            int Region_max_y = Map.getInstance().getRegionCountY();
+            int i, j;
+            for(i = 0; i < Region_max_x; ++i){
+                for(j = 0; j < Region_max_y; ++j){
+                    Vehicle[] vehiclesArray = Regions[i][j].getVehicleArray();
+                    for(int k = 0; k < vehiclesArray.length; ++k){
+                        Vehicle vehicle = vehiclesArray[k];
+
+                        //add all vehicles near the coordinates (300 cm radius)
+                        if(editItem_.isSelected()){
+                            if(vehicle.getX() > (x - 300) && vehicle.getX() < (x + 300) && vehicle.getY() > (y - 300) && vehicle.getY() < (y + 300)) {
+                                chooseVehicle_.addItem(vehicle);
+                                chooseVehicle_.setVisible(true);
+                                chooseVehicleLabel_.setVisible(true);
+                            }
+                        }
+
+                        //sets one of the nearest vehicles to the selected item in the combobox
+                        if(vehicle.getX() > (x - 100) && vehicle.getX() < (x + 100) && vehicle.getY() > (y - 100) && vehicle.getY() < (y + 100)) {
+                            Renderer.getInstance().setMarkedVehicle(vehicle);
+
+                            if(editItem_.isSelected()){
+                                speed_.setValue((int)Math.round(vehicle.getMaxSpeed() / (100000.0/3600)));
+                                vehicleLength_.setValue((int)vehicle.getVehicleLength());
+                                commDist_.setValue((int)Math.round(vehicle.getMaxCommDistance() / 100));
+                                wait_.setValue((int)vehicle.getWaittime());
+                                wifi_.setSelected(vehicle.isWiFiEnabled());
+                                emergencyVehicle_.setSelected(vehicle.isEmergencyVehicle());
+                                colorPreview_.setBackground(vehicle.getColor());
+                                brakingRate_.setValue(vehicle.getBrakingRate());
+                                accelerationRate_.setValue(vehicle.getAccelerationRate());
+                                timeDistance_.setValue(vehicle.getTimeDistance());
+                                politeness_.setValue(vehicle.getPoliteness());
+                                chooseVehicle_.setSelectedItem(vehicle);
+                            }
+                            else{
+                                Map.getInstance().delVehicle(Renderer.getInstance().getMarkedVehicle());
+                                if(Renderer.getInstance().getMarkedVehicle().equals(Renderer.getInstance().getAttackedVehicle())) Renderer.getInstance().setAttackedVehicle(null);
+                                if(Renderer.getInstance().getMarkedVehicle().equals(Renderer.getInstance().getAttackerVehicle())) Renderer.getInstance().setAttackerVehicle(null);
+                                Renderer.getInstance().setMarkedVehicle(null);
+
+                            }
+
+                        }
+
+
+
+                    }
+                }
+                //if no vehicle in a 100 cm radius was found just select the first vehicle in the combobox
+                if(Renderer.getInstance().getMarkedVehicle() == null && chooseVehicle_.getItemCount() != 0){
+                    Renderer.getInstance().setMarkedVehicle((Vehicle) chooseVehicle_.getItemAt(0));
+
+                    //updates the input fields to the first vehicle
+                    actionPerformed(new ActionEvent(chooseVehicle_,0,"comboBoxChanged"));
+                }
+            }
+            chooseVehicle_.addActionListener(this); //add the ActionsListener when all vehicles are added to the combobox
+            Renderer.getInstance().ReRender(false, false);
+        }
+
+        //destinations is not null after pressing the add vehicles button, now all clicks are saved to destinations as waypoints
+        else if(destinations != null){
+            WayPoint tmpWayPoint;
+            try {
+                tmpWayPoint = new WayPoint(x,y,((Number)wait_.getValue()).intValue());
+                destinations.add(tmpWayPoint);
+                //engough waypoints are selected call addVehicle()
+                if(destinations.size() == ((Number)waypointAmount_.getValue()).intValue()) addVehicle();
+            } catch (ParseException e) {
+                JOptionPane.showMessageDialog(null, Messages.getString("EditOneVehicleControlPanel.MsgBoxCreateWaypointError"), "Error", JOptionPane.ERROR_MESSAGE);
+                e.printStackTrace();
+            }
+
+        }
+
     }
 
     /**
      * Function to add vehicles. Called after enough waypoints where selected on map.
      */
     private void addVehicle(){
-        /** 待新增 */
+        /** 待新增
+         *  於 2017/11/22_1708 完整新增
+         * */
+
+        Vehicle tmpVehicle;
+        int timeBetween = 0;
+
+        //if there is more than one vehicle to be created, ask for the time between the vehicles start
+        if(((Number)vehicleAmount_.getValue()).intValue() > 1)  timeBetween = Integer.parseInt(JOptionPane.showInputDialog(Messages.getString("EditOneVehicleControlPanel.MsgBoxVehicleAmount")));
+        try {
+            for(int i = 0; i < ((Number)vehicleAmount_.getValue()).intValue() ;i++){
+                destinations.peekFirst().setWaittime(i*timeBetween * 1000 + ((Number)wait_.getValue()).intValue());
+                tmpVehicle = new Vehicle(destinations, ((Number)vehicleLength_.getValue()).intValue(), (int)Math.round(((Number)speed_.getValue()).intValue() * 100000.0/3600), ((Number)commDist_.getValue()).intValue()*100, wifi_.isSelected(), emergencyVehicle_.isSelected(), ((Number) brakingRate_.getValue()).intValue(), ((Number)accelerationRate_.getValue()).intValue(), ((Number)timeDistance_.getValue()).intValue(), ((Number)politeness_.getValue()).intValue(), getColorPreview().getBackground());
+                Map.getInstance().addVehicle(tmpVehicle);
+                Renderer.getInstance().setMarkedVehicle(tmpVehicle);
+            }
+
+            destinations = null;
+        } catch (ParseException e) {
+            JOptionPane.showMessageDialog(null, Messages.getString("EditOneVehicleControlPanel.MsgBoxCreateVehicleError"), "Error", JOptionPane.ERROR_MESSAGE);
+            e.printStackTrace();
+        }
+        Renderer.getInstance().ReRender(true, false);
+
+        //reset the text of the add vehicle note
+        addNote_.setForeground(Color.black);
+        addNote_.setText(Messages.getString("EditOneVehicleControlPanel.noteAdd"));
+
     }
 
 
@@ -491,7 +609,29 @@ public class EditOneVehicleControlPanel extends JPanel implements ActionListener
         }
         //action when the deleteVehicle Button is pressed
         if("deleteVehicle".equals(command)){
-            /** 待新增 */
+            //delete vehicle, if markedVehicle is not null
+            if(Renderer.getInstance().getMarkedVehicle() != null){
+                if(chooseVehicle_.getItemCount() > 1){
+                    Map.getInstance().delVehicle(Renderer.getInstance().getMarkedVehicle());
+                    chooseVehicle_.removeItem(Renderer.getInstance().getMarkedVehicle());
+                    Renderer.getInstance().setMarkedVehicle((Vehicle) chooseVehicle_.getSelectedItem());
+                }
+                else{
+                    chooseVehicle_.removeActionListener(this); //important: Remove ActionListener before removing all items from Combobox
+                    chooseVehicle_.removeAllItems();
+                    chooseVehicle_.setVisible(false);
+                    chooseVehicleLabel_.setVisible(false);
+                    Map.getInstance().delVehicle(Renderer.getInstance().getMarkedVehicle());
+                    Renderer.getInstance().setMarkedVehicle(null);
+                    chooseVehicle_.addActionListener(this);
+                }
+
+
+                Renderer.getInstance().ReRender(false, false);
+            }
+            else{
+                JOptionPane.showMessageDialog(null, Messages.getString("EditOneVehicleControlPanel.MsgBoxDeleteVehicle"), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
         else if ("comboBoxChanged".equals(command)){
             //action when a vehicle in the chooseVehicle Combobox is selected update GUI
@@ -518,14 +658,26 @@ public class EditOneVehicleControlPanel extends JPanel implements ActionListener
             else if(((Component) e.getSource()).getName().equals("chooseVehicleType")){
                 VehicleType tmpVehicleType = (VehicleType) chooseVehicleType_.getSelectedItem();
 
-                /** 待新增 */
+                if(tmpVehicleType != null){
+                    speed_.setValue((int)Math.round((tmpVehicleType.getMaxSpeed() / (100000.0/3600) + tmpVehicleType.getMinSpeed() / (100000.0/3600)) / 2));
+                    vehicleLength_.setValue(tmpVehicleType.getVehicleLength());
+                    commDist_.setValue((int)Math.round((tmpVehicleType.getMaxCommDist() / 100 + tmpVehicleType.getMinCommDist() / 100) / 2));
+                    wait_.setValue((int)Math.round((tmpVehicleType.getMaxWaittime() + tmpVehicleType.getMinWaittime()) /2));
+                    brakingRate_.setValue(((int)Math.round(tmpVehicleType.getMaxBrakingRate() + tmpVehicleType.getMinBrakingRate()) / 2));
+                    accelerationRate_.setValue(Math.round((tmpVehicleType.getMaxAccelerationRate() + tmpVehicleType.getMinAccelerationRate()) / 2));
+                    timeDistance_.setValue(Math.round((tmpVehicleType.getMaxTimeDistance() + tmpVehicleType.getMinTimeDistance()) / 2));
+                    politeness_.setValue(Math.round((tmpVehicleType.getMaxPoliteness() + tmpVehicleType.getMinPoliteness()) / 2));
+                    wifi_.setSelected(tmpVehicleType.isWifi());
+                    emergencyVehicle_.setSelected(tmpVehicleType.isEmergencyVehicle());
+                    colorPreview_.setBackground(new Color(tmpVehicleType.getColor()));
+                }
 
             }
         }
         //delete all vehicles
         else if("clearVehicles".equals(command)){
             if(JOptionPane.showConfirmDialog(null, Messages.getString("EditOneVehicleControlPanel.msgBoxClearAll"), "", JOptionPane.YES_NO_OPTION) == 0){
-                /** 待新增 */
+                Map.getInstance().clearVehicles();
                 Renderer.getInstance().ReRender(true, false);
             }
         }
@@ -535,7 +687,18 @@ public class EditOneVehicleControlPanel extends JPanel implements ActionListener
      * updates the vehicle type combobox
      */
     public void refreshVehicleTypes(){
-        /** 待新增 */
+
+        chooseVehicleType_.removeActionListener(this);  //important: Remove ActionListener before removing all items from Combobox
+        chooseVehicleType_.removeAllItems();
+        VehicleTypeXML xml = new VehicleTypeXML(null);
+        for(VehicleType type : xml.getVehicleTypes()){
+            chooseVehicleType_.addItem(type);
+        }
+        if(chooseVehicleType_.getItemCount() > 0){
+            chooseVehicleType_.setVisible(true);
+            chooseVehicleTypeLabel_.setVisible(true);
+        }
+        chooseVehicleType_.addActionListener(this);
     }
 
     /**

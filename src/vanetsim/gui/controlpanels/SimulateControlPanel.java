@@ -287,7 +287,94 @@ public final class SimulateControlPanel extends JPanel implements ActionListener
      * @param e an <code>ActionEvent</code>
      */
     public void actionPerformed(ActionEvent e) {
-        /** 待新增 */
+
+        String command = e.getActionCommand();
+        if ("up".equals(command)){ //$NON-NLS-1$
+            Renderer.getInstance().pan('u');
+            ReRenderManager.getInstance().doReRender();
+        } else if ("down".equals(command)){ //$NON-NLS-1$
+            Renderer.getInstance().pan('d');
+            ReRenderManager.getInstance().doReRender();
+        } else if ("left".equals(command)){ //$NON-NLS-1$
+            Renderer.getInstance().pan('l');
+            ReRenderManager.getInstance().doReRender();
+        } else if ("right".equals(command)){ //$NON-NLS-1$
+            Renderer.getInstance().pan('r');
+            ReRenderManager.getInstance().doReRender();
+        } else if ("loadmap".equals(command)){ //$NON-NLS-1$
+            VanetSimStart.getMainControlPanel().changeFileChooser(true, true, false);
+            int returnVal = VanetSimStart.getMainControlPanel().getFileChooser().showOpenDialog(VanetSimStart.getMainFrame());
+            if (returnVal == JFileChooser.APPROVE_OPTION) {
+                Runnable job = new Runnable() {
+                    public void run() {
+                        Map.getInstance().load(VanetSimStart.getMainControlPanel().getFileChooser().getSelectedFile(), false);
+                    }
+                };
+                new Thread(job).start();
+            }
+        } else if ("loadscenario".equals(command)){ //$NON-NLS-1$
+
+            /** 關閉此功能 */
+//            VanetSimStart.getMainControlPanel().changeFileChooser(true, true, false);
+//            int returnVal = VanetSimStart.getMainControlPanel().getFileChooser().showOpenDialog(VanetSimStart.getMainFrame());
+//            if (returnVal == JFileChooser.APPROVE_OPTION) {
+//                Runnable job = new Runnable() {
+//                    public void run() {
+//                        Scenario.getInstance().load(VanetSimStart.getMainControlPanel().getFileChooser().getSelectedFile(), false);
+//                    }
+//                };
+//                new Thread(job).start();
+//            }
+
+        } else if ("pause".equals(command)){ //$NON-NLS-1$
+            CardLayout cl = (CardLayout)(startStopJPanel_.getLayout());
+            cl.show(startStopJPanel_, "start"); //$NON-NLS-1$
+            Runnable job = new Runnable() {
+                public void run() {
+                    VanetSimStart.getSimulationMaster().stopThread();
+                }
+            };
+            new Thread(job).start();
+        } else if ("start".equals(command)){ //$NON-NLS-1$
+            if(VanetSimStart.getMainControlPanel().getEditPanel().getEditMode() == true) ErrorLog.log(Messages.getString("SimulateControlPanel.simulationNotPossibleInEditMode"), 6, this.getName(), "startSim", null); //$NON-NLS-1$ //$NON-NLS-2$
+            else {
+                CardLayout cl = (CardLayout)(startStopJPanel_.getLayout());
+                cl.show(startStopJPanel_, "pause"); //$NON-NLS-1$
+                VanetSimStart.getSimulationMaster().startThread();
+            }
+        } else if ("onestep".equals(command)){ //$NON-NLS-1$
+
+            /** 關閉此功能 */
+//            if(VanetSimStart.getMainControlPanel().getEditPanel().getEditMode() == true) ErrorLog.log(Messages.getString("SimulateControlPanel.simulationNotPossibleInEditMode"), 6, this.getName(), "oneStep", null); //$NON-NLS-1$ //$NON-NLS-2$
+//            else{
+//                Runnable job = new Runnable() {
+//                    public void run() {
+//                        VanetSimStart.getSimulationMaster().doOneStep();
+//                    }
+//                };
+//                new Thread(job).start();
+//            }
+
+        } else if("targetTimeApply".equals(command)){ //$NON-NLS-1$
+
+            /** 關閉此功能 */
+//            if(VanetSimStart.getMainControlPanel().getEditPanel().getEditMode() == true) ErrorLog.log(Messages.getString("SimulateControlPanel.simulationNotPossibleInEditMode"), 6, this.getName(), "startSim", null); //$NON-NLS-1$ //$NON-NLS-2$
+//            else{
+//                int target = ((Number)jumpToTargetTime_.getValue()).intValue();
+//                if(target <= Renderer.getInstance().getTimePassed()) ErrorLog.log(Messages.getString("SimulateControlPanel.jumpingBackwardsNotPossible"), 6, this.getName(), "jumpToTime", null);  //$NON-NLS-1$//$NON-NLS-2$
+//                else VanetSimStart.getSimulationMaster().jumpToTime(target);
+//            }
+
+        } else if("targetStepTimeApply".equals(command)){ //$NON-NLS-1$
+
+            /** 關閉此功能 */
+//            int tmp = ((Number)targetStepTime_.getValue()).intValue();
+//            if(tmp < 0){
+//                ErrorLog.log(Messages.getString("SimulateControlPanel.noNegativeTargetStepTime"), 6, this.getName(), "targetStepTimeApply", null); //$NON-NLS-1$ //$NON-NLS-2$
+//            } else {
+//                VanetSimStart.getSimulationMaster().setTargetStepTime(tmp);
+//            }
+        }
     }
 
     /**

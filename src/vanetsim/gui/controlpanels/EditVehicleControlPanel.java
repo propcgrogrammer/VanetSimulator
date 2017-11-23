@@ -380,7 +380,125 @@ public class EditVehicleControlPanel extends JPanel implements ActionListener, M
      * @param e	an <code>ActionEvent</code>
      */
     public void actionPerformed(ActionEvent e) {
-        /** 待新增 */
+        String command = e.getActionCommand();
+        if("createRandom".equals(command)){ //$NON-NLS-1$
+            Renderer.getInstance().setShowVehicles(true);
+            Runnable job = new Runnable() {
+                public void run() {
+                    int i, j, k, l = 0;
+                    VanetSimStart.setProgressBar(true);
+                    int maxX = Map.getInstance().getMapWidth();
+                    int maxY = Map.getInstance().getMapHeight();
+                    int minSpeedValue = (int)Math.round(((Number)minSpeed_.getValue()).intValue() * 100000.0/3600);
+                    int maxSpeedValue = (int)Math.round(((Number)maxSpeed_.getValue()).intValue() * 100000.0/3600);
+                    int minCommDistValue = ((Number)minCommDist_.getValue()).intValue()*100;
+                    int maxCommDistValue = ((Number)maxCommDist_.getValue()).intValue()*100;
+                    int minWaitValue = ((Number)minWait_.getValue()).intValue();
+                    int maxWaitValue = ((Number)maxWait_.getValue()).intValue();
+                    int minBrakingValue = ((Number)minBraking_.getValue()).intValue();
+                    int maxBrakingValue = ((Number)maxBraking_.getValue()).intValue();
+                    int minAccelerationValue = ((Number)minAcceleration_.getValue()).intValue();
+                    int maxAccelerationValue = ((Number)maxAcceleration_.getValue()).intValue();
+                    int minTimeDistance = ((Number)minTimeDistance_.getValue()).intValue();
+                    int maxTimeDistance = ((Number)maxTimeDistance_.getValue()).intValue();
+                    int minPoliteness = ((Number)minPoliteness_.getValue()).intValue();
+                    int maxPoliteness = ((Number)maxPoliteness_.getValue()).intValue();
+                    int wiFiValue = ((Number)wiFi_.getValue()).intValue();
+                    int emergencyValue = ((Number)emergencyVehicle_.getValue()).intValue();
+                    int speedRestriction = (int)Math.round(((Number)speedStreetRestriction_.getValue()).intValue() * 100000.0/3600);
+                    if(wiFiValue < 0){
+                        wiFiValue = 0;
+                        wiFi_.setValue(0);
+                    } else if(wiFiValue > 100){
+                        wiFiValue = 100;
+                        wiFi_.setValue(100);
+                    }
+                    if(emergencyValue < 0){
+                        emergencyValue = 0;
+                        emergencyVehicle_.setValue(0);
+                    } else if(emergencyValue > 100){
+                        emergencyValue = 100;
+                        emergencyVehicle_.setValue(100);
+                    }
+                    int amountValue = ((Number)amount_.getValue()).intValue();
+
+                    boolean wiFiEnabled;
+                    boolean emergencyEnabled;
+                    ArrayDeque<WayPoint> destinations = null;
+                    Vehicle tmpVehicle;
+                    Random random = new Random();
+
+                    // create the random vehicles. It may fail lots of times if the map is almost empty. Then, possible less
+                    // vehicles are created than specified because it's only tried 4 x amountValue!
+                    for(i = 0; i < amountValue;){
+                        j = 0;
+                        k = 0;
+                        ++l;
+                        destinations = new ArrayDeque<WayPoint>(2);
+                        while(j < 2 && k < 20){	// if snapping fails more than 20 times break
+                            try{
+                                ++k;
+                                WayPoint tmpWayPoint = new WayPoint(random.nextInt(maxX),random.nextInt(maxY),getRandomRange(minWaitValue, maxWaitValue, random));
+                                if(tmpWayPoint.getStreet().getSpeed() <= speedRestriction){
+                                    destinations.add(tmpWayPoint);
+                                    ++j;
+                                }
+                            } catch (Exception e) {}
+                        }
+                        if(k < 20) {
+                            try {
+                                if(getRandomRange(0, 99, random) < wiFiValue) wiFiEnabled = true;
+                                else wiFiEnabled = false;
+                                if(getRandomRange(0, 99, random) < emergencyValue) emergencyEnabled = true;
+                                else emergencyEnabled = false;
+                                tmpVehicle = new Vehicle(destinations, ((Number)vehicleLength_.getValue()).intValue(), getRandomRange(minSpeedValue, maxSpeedValue, random), getRandomRange(minCommDistValue, maxCommDistValue, random), wiFiEnabled, emergencyEnabled, getRandomRange(minBrakingValue, maxBrakingValue, random), getRandomRange(minAccelerationValue, maxAccelerationValue, random), getRandomRange(minTimeDistance, maxTimeDistance, random), getRandomRange(minPoliteness, maxPoliteness, random), colorPreview_.getBackground());
+                                Map.getInstance().addVehicle(tmpVehicle);
+                                ++i;
+                            } catch (Exception e) {}
+                        }
+                        if(l > amountValue*4) break;
+                    }
+                    int errorLevel = 2;
+                    if(i < amountValue) errorLevel = 6;
+                    ErrorLog.log(Messages.getString("EditVehicleControlPanel.createdRandomVehicles") + i + " (" + amountValue +Messages.getString("EditVehicleControlPanel.requested"), errorLevel, getClass().getName(), "actionPerformed", null); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$ //$NON-NLS-4$
+                    VanetSimStart.setProgressBar(false);
+                    Renderer.getInstance().ReRender(false, false);
+                }
+            };
+            new Thread(job).start();
+        }
+        //update GUI when vehicle type is selected
+        else if ("comboBoxChanged".equals(command)){
+            if(((Component) e.getSource()).getName().equals("chooseVehicleType")){
+                VehicleType tmpVehicleType = (VehicleType) chooseVehicleType_.getSelectedItem();
+
+                if(tmpVehicleType != null){
+                    maxSpeed_.setValue((int)Math.round(tmpVehicleType.getMaxSpeed() / (100000.0/3600)));
+                    vehicleLength_.setValue(tmpVehicleType.getVehicleLength());
+                    maxCommDist_.setValue((int)Math.round(tmpVehicleType.getMaxCommDist() / 100));
+                    maxWait_.setValue((int)tmpVehicleType.getMaxWaittime());
+                    maxBraking_.setValue((int)tmpVehicleType.getMaxBrakingRate());
+                    maxAcceleration_.setValue((int)tmpVehicleType.getMaxAccelerationRate());
+                    maxTimeDistance_.setValue((int)tmpVehicleType.getMaxTimeDistance());
+                    maxPoliteness_.setValue((int)tmpVehicleType.getMaxPoliteness());
+                    minSpeed_.setValue((int)Math.round(tmpVehicleType.getMinSpeed() / (100000.0/3600)));
+                    minCommDist_.setValue((int)Math.round(tmpVehicleType.getMinCommDist() / 100));
+                    minWait_.setValue((int)tmpVehicleType.getMinWaittime());
+                    minBraking_.setValue((int)tmpVehicleType.getMinBrakingRate());
+                    minAcceleration_.setValue((int)tmpVehicleType.getMinAccelerationRate());
+                    minTimeDistance_.setValue((int)tmpVehicleType.getMinTimeDistance());
+                    minPoliteness_.setValue((int)tmpVehicleType.getMinPoliteness());
+                    colorPreview_.setBackground(new Color(tmpVehicleType.getColor()));
+                }
+            }
+        }
+        //delete all Vehicles
+        else if("clearVehicles".equals(command)){
+            if(JOptionPane.showConfirmDialog(null, Messages.getString("EditVehicleControlPanel.msgBoxClearAll"), "", JOptionPane.YES_NO_OPTION) == 0){
+                Map.getInstance().clearVehicles();
+                Renderer.getInstance().ReRender(true, false);
+            }
+        }
     }
 
     /**
@@ -409,7 +527,13 @@ public class EditVehicleControlPanel extends JPanel implements ActionListener, M
      * 	updates the vehicle types combobox
      */
     public void refreshVehicleTypes(){
-        /** 待新增 */
+        chooseVehicleType_.removeActionListener(this); //important: remove all ActionListeners before removing all items
+        chooseVehicleType_.removeAllItems();
+        VehicleTypeXML xml = new VehicleTypeXML(null);
+        for(VehicleType type : xml.getVehicleTypes()){
+            chooseVehicleType_.addItem(type);
+        }
+        chooseVehicleType_.addActionListener(this);
     }
 
     /**

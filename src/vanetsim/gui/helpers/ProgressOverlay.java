@@ -32,9 +32,12 @@ public class ProgressOverlay extends JDialog implements ActionListener {
         JProgressBar progressBar = new JProgressBar(0, 100);
 
         /** 當setIndeterminate(true)參數為true，不明確顯示進度條，反之 */
-        progressBar.setIndeterminate(false);
-        progressBar.setValue(50);
-        progressBar.setStringPainted(true);
+        progressBar.setIndeterminate(true);
+
+//        progressBar.setIndeterminate(false);
+//        progressBar.setValue(50);
+//        progressBar.setStringPainted(true);
+
         setLayout(new BorderLayout());
         add(progressBar, BorderLayout.PAGE_START);
         add(ButtonCreator.getJButton("shutdown.png", "shutdown", Messages.getString("ProgressOverlay.quitProgram"), this), BorderLayout.PAGE_END); //$NON-NLS-1$ //$NON-NLS-2$ //$NON-NLS-3$

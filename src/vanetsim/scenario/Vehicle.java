@@ -346,6 +346,14 @@ public class Vehicle extends LaneObject{
     /** Vehicle is waiting behind a traffic signal (do not send any message)*/
     private boolean waitingForSignal_ = false;
 
+    private static boolean isTrafficJam_ = false; public static boolean isTrafficJam(){return isTrafficJam_;}
+
+
+    private boolean isArrived_ = false; public boolean isArrived(){return isArrived_;}
+
+    private int startX = 0;
+    private int startY = 0;
+
 
 
     /** A distance between vehicles based on time (ms) (between 0 - 1000)*/
@@ -394,7 +402,7 @@ public class Vehicle extends LaneObject{
      * @throws ParseException an Exception indicating that you did not supply a valid destination list.
      */
     public Vehicle(ArrayDeque<WayPoint> destinations, int vehicleLength, int maxSpeed, int maxCommDist, boolean wiFiEnabled, boolean emergencyVehicle, int brakingRate, int accelerationRate, int timeDistance, int politeness, Color color) throws ParseException {
-        if(destinations != null && destinations.size()>1) {
+        if(destinations != null && destinations.size()>1){
             originalDestinations_ = destinations;
             destinations_ = originalDestinations_.clone();
             ID_ = RANDOM.nextLong();
@@ -407,16 +415,1029 @@ public class Vehicle extends LaneObject{
             accelerationRate_ = accelerationRate;
             timeDistance_ = timeDistance;
             politeness_ = politeness;
-            maxBrakingDistance_ = maxSpeed_ + maxSpeed_ * maxSpeed_ / (2 * brakingRate_);    // see http://de.wikipedia.org/wiki/Bremsweg
-            startingWayPoint_ = destinations_.pollFirst();        // take the first element and remove it from the destinations!
+            maxBrakingDistance_ = maxSpeed_ + maxSpeed_ * maxSpeed_ / (2 * brakingRate_);	// see http://de.wikipedia.org/wiki/Bremsweg
+            startingWayPoint_ = destinations_.pollFirst();		// take the first element and remove it from the destinations!
             wiFiEnabled_ = wiFiEnabled;
             ownRandom_ = new Random(RANDOM.nextLong());
+            curX_ = startingWayPoint_.getX();
+            curY_ = startingWayPoint_.getY();
 
-            /** 待增加 */
+            startX = startingWayPoint_.getX();
+            startY = startingWayPoint_.getY();
+
+            curPosition_ = startingWayPoint_.getPositionOnStreet();
+            curStreet_ = startingWayPoint_.getStreet();
+            curWaitTime_ = startingWayPoint_.getWaittime();
+
+            curRegion_ = Map.getInstance().getRegionOfPoint(curX_,curY_);
+
+            maxCommDistance_ = maxCommDist;
+            curSpeed_ = brakingRate_/2;
+            newSpeed_ = curSpeed_;
+            if(curStreet_.isOneway()){
+                while(!destinations_.isEmpty() && (destinations_.peekFirst().getStreet() == curStreet_ || !calculateRoute(false, false))){
+                    curWaitTime_ = destinations_.pollFirst().getWaittime();
+                }
+            } else {
+                while(!destinations_.isEmpty() && (destinations_.peekFirst().getStreet() == curStreet_ || !calculateRoute(false, false))){
+                    curWaitTime_ = destinations_.pollFirst().getWaittime();
+                }
+            }
+            if(destinations_.size() == 0) throw new ParseException(Messages.getString("Vehicle.errorNotEnoughDestinations"),0); //$NON-NLS-1$
+            if(curWaitTime_ == 0){
+                active_ = true;
+                curStreet_.addLaneObject(this, curDirection_);
+            }
+            calculatePosition();
+
+            //set the countdowns so that not all fire at the same time!
+            beaconCountdown_ = (int)Math.round(curPosition_)%beaconInterval_;
+            communicationCountdown_ = (int)Math.round(curPosition_)%communicationInterval_;
+            mixCheckCountdown_ = (int)Math.round(curPosition_)%MIX_CHECK_INTERVAL;
+            knownVehiclesTimeoutCountdown_ = (int)Math.round(curPosition_)%KNOWN_VEHICLES_TIMEOUT_CHECKINTERVAL;
+            knownPenaltiesTimeoutCountdown_ = (int)Math.round(curPosition_)%KNOWN_PENALTIES_TIMEOUT_CHECKINTERVAL;
+            knownRSUsTimeoutCountdown_ = (int)Math.round(curPosition_)%KNOWN_RSUS_TIMEOUT_CHECKINTERVAL;
+        } else throw new ParseException(Messages.getString("Vehicle.errorNotEnoughDestinations"),0); //$NON-NLS-1$
+    }
+
+
+    /**
+     * (Re-)Calculates the route to the next destination.
+     *
+     * @param careAboutDirection	<code>true</code> if the direction on the current street shall be used for calculation, <code>false</code> if the direction can be chosen freely
+     * @param isReroute				<code>true</code> to indicate that this is a Rerouting. If it's a rerouting, a non-existent route does not lead to the vehicle getting inactive!
+     *
+     * @return <code>true</code> if new route has been found, else <code>false</code> (on error)
+     */
+    public boolean calculateRoute(boolean careAboutDirection, boolean isReroute){
+        try{
+            WayPoint nextPoint = destinations_.peekFirst();
+            if(curStreet_ == nextPoint.getStreet()){
+                boolean neededDirection;
+                if(curPosition_ < nextPoint.getPositionOnStreet()) neededDirection = true;
+                else neededDirection = false;
+                if(!careAboutDirection || neededDirection == curDirection_){
+                    routeStreets_ = new Street[1];
+                    routeStreets_[0] = curStreet_;
+                    routeDirections_ = new boolean[1];
+                    routeDirections_[0] = true;
+                    routePosition_ = 0;
+                    return true;
+                } //else calculate with routing algo below!
+            }
+            int direction;
+            if(!careAboutDirection) direction = 0;
+            else if(curDirection_) direction = -1;
+            else direction = 1;
+
+
+
+            // ArrayDeque<Node> routing = ROUTING_ALGO.getRouting(routingMode_, direction, curX_, curY_, curStreet_, curPosition_, nextPoint.getX(), nextPoint.getY(), nextPoint.getStreet(), nextPoint.getPositionOnStreet(), knownPenalties_.getStreets(), knownPenalties_.getDirections(), knownPenalties_.getPenalties(), knownPenalties_.getSize(), maxSpeed_);
+
+            ArrayDeque<Node> routing = ROUTING_ALGO.getRouting(routingMode_, direction, startX, startY, curStreet_, curPosition_, nextPoint.getX(), nextPoint.getY(), nextPoint.getStreet(), nextPoint.getPositionOnStreet(), knownPenalties_.getStreets(), knownPenalties_.getDirections(), knownPenalties_.getPenalties(), knownPenalties_.getSize(), maxSpeed_);
+
+            if(routing.size() > 0){
+                if(routing.size() == 1){
+                    routeStreets_ = new Street[2];
+                    routeStreets_[0] = curStreet_;
+                    routeStreets_[1] = nextPoint.getStreet();
+                    routeDirections_ = new boolean[2];
+                    if(routing.peekFirst() == curStreet_.getEndNode()) routeDirections_[0] = true;
+                    else routeDirections_[0] = false;
+                    if(routing.peekFirst() == nextPoint.getStreet().getStartNode()) routeDirections_[1] = true;
+                    else routeDirections_[1] = false;
+                    routePosition_ = 0;
+                    return true;
+                } else {
+                    Node nextNode;
+                    int i;
+                    boolean usedDestination = false;
+                    Street[] outgoingStreets;
+                    Street tmpStreet = curStreet_, tmpStreet2;
+                    routeStreets_ = new Street[routing.size() + 1];
+                    routeDirections_ = new boolean[routing.size() + 1];
+                    Iterator<Node> routeIterator = routing.iterator();
+                    if(routing.peekFirst() == curStreet_.getEndNode()) curDirection_ = true;
+                    else curDirection_ = false;
+                    routeStreets_[0] = curStreet_;	//add current street as first element
+                    boolean tmpDirection;
+                    if(routeIterator.next() == curStreet_.getEndNode()) tmpDirection = true;
+                    else tmpDirection = false;
+                    routeDirections_[0] = tmpDirection;
+                    routePosition_ = 1;
+
+                    while(true){	//add all streets from routing
+                        if(routeIterator.hasNext()) nextNode = routeIterator.next();
+                        else if (!usedDestination){
+                            usedDestination = true;
+                            if(nextPoint.getStreet() != tmpStreet){
+                                nextNode = nextPoint.getStreet().getStartNode();
+                                if((!tmpDirection && nextNode == tmpStreet.getStartNode()) || (tmpDirection && nextNode == tmpStreet.getEndNode())) nextNode = nextPoint.getStreet().getEndNode();
+                            } else break;
+                        } else break;
+                        if(tmpDirection) outgoingStreets = tmpStreet.getEndNode().getOutgoingStreets();
+                        else outgoingStreets = tmpStreet.getStartNode().getOutgoingStreets();
+                        for(i = 0; i < outgoingStreets.length; ++i){
+                            tmpStreet2 = outgoingStreets[i];
+                            if (tmpStreet2.getStartNode() == nextNode){
+                                tmpStreet = tmpStreet2;
+                                tmpDirection = false;
+                                break;		// found street we want to => no need to look through others
+                            } else if (tmpStreet2.getEndNode() == nextNode){
+                                tmpStreet = tmpStreet2;
+                                tmpDirection = true;
+                                break;		// found street we want to => no need to look through others
+                            }
+                        }
+                        routeStreets_[routePosition_] = tmpStreet;
+                        routeDirections_[routePosition_] = tmpDirection;
+                        ++routePosition_;
+                    }
+                    routePosition_ = 0;
+                    destinationCheckCountdown_ = 0;
+                    return true;
+                }
+            } else {
+                if(!isReroute && destinations_.size() < 2) {
+                    active_ = false;
+                    curWaitTime_ = Integer.MIN_VALUE;
+                    if(totalTravelTime_ >= minTravelTimeForRecycling_) mayBeRecycled_ = true;
+                }
+                return false;
+            }
+
+
+        } catch (Exception e){
+            return false;
+        }
+    }
+
+    /**
+     * Adjust the speed if reaching crossings or other cars. It also checks if the vehicle should get active.
+     * Furthermore some cleanup in the known messages and vehicles is done and new jam messages are created if necessary.
+     *
+     * @param timePerStep the time per step in milliseconds
+     */
+
+    public void adjustSpeed(int timePerStep){
+        waitingForSignal_ = false;
+        if(curWaitTime_ != 0 && curWaitTime_ != Integer.MIN_VALUE){
+            if(curWaitTime_ <= timePerStep){
+                curWaitTime_ = 0;
+                active_ = true;
+                brakeForDestination_ = false;
+                curStreet_.addLaneObject(this, curDirection_);
+            } else curWaitTime_ -= timePerStep;
         }
 
-            /** 待增加 */
+        if(active_){
+
+            isTrafficJam_ = false;
+            if(curWaitTime_ == 0 && curStreet_ != null){
+                //curBrakingDistance always needs to be up-to-date but speed normally doesn't change too often...
+                if(curSpeed_ != speedAtLastBrakingDistanceCalculation_){
+                    speedAtLastBrakingDistanceCalculation_ = curSpeed_;
+                    //curBrakingDistance_ = (int)StrictMath.floor(((timeDistance_/1000)*curSpeed_) + curSpeed_ * curSpeed_ / (2 * brakingRate_)); <-- new version, commented out because of performance issues (vehicles are to near together when blocking occurs)
+                    //System.out.println(curBrakingDistance_);
+                    curBrakingDistance_ = (int)StrictMath.floor(0.5d + curSpeed_ + curSpeed_ * curSpeed_ / (2 * brakingRate_));
+                    if(curBrakingDistance_ < 500) curBrakingDistance_ = 500;
+                }
+                // =================================
+                // Step 1: Check if vehicle is near destination so that it needs to brake (only checked when necessary => timer!)
+                // =================================
+                if(destinationCheckCountdown_ <= 0 && ! brakeForDestination_){
+                    WayPoint destinationWayPoint = destinations_.peekFirst();
+                    long dx = destinationWayPoint.getX() - curX_;
+                    long dy = destinationWayPoint.getY() - curY_;
+
+                    if(dx == 0 && dy == 0) isArrived_ = true;
+
+                    long distanceSquared = dx * dx + dy * dy;
+                    if(distanceSquared < (long)maxBrakingDistance_*maxBrakingDistance_*2){		//seems we're quite near a destination! This happens only in the last about 2-3 seconds!
+                        if(destinationWayPoint.getStreet() == curStreet_){ //if on the same street, the distance calculation is already correct!
+                            if(distanceSquared <= (long)curBrakingDistance_*curBrakingDistance_){
+                                if(brakeForDestinationCountdown_ > 1000) brakeForDestinationCountdown_ = 1000;
+                                brakeForDestination_ = true;
+                            } else destinationCheckCountdown_ = (int)StrictMath.floor(0.5d + ((StrictMath.sqrt(distanceSquared)-maxBrakingDistance_)/maxSpeed_)*1000);
+                        } else {	//not on the same street. Need to calculate the length of the rest of the way to the destination
+                            double distance = 0, tmpPosition = curPosition_;
+                            Street tmpStreet = curStreet_;
+                            boolean tmpDirection = curDirection_;
+                            int i;
+                            int j = routeStreets_.length-1;
+                            for(i = routePosition_; i < j;){
+                                if(tmpDirection) distance += tmpStreet.getLength() - tmpPosition;
+                                else distance += tmpPosition;
+                                ++i;
+                                tmpDirection = routeDirections_[i];
+                                tmpStreet = routeStreets_[i];
+                                if(tmpDirection) tmpPosition = 0;
+                                else tmpPosition = tmpStreet.getLength();
+                            }
+                            if(tmpDirection) distance += destinations_.getFirst().getPositionOnStreet() - tmpPosition;	//left over...
+                            else distance += tmpPosition - destinations_.getFirst().getPositionOnStreet();
+                            if(distance <= curBrakingDistance_){		//near enough to schedule braking!
+                                if(brakeForDestinationCountdown_ > 1000) brakeForDestinationCountdown_ = 1000;
+                                brakeForDestination_ = true;
+                            } else if(distance > maxBrakingDistance_) {	//far enough that we can sleep a little bit more
+                                destinationCheckCountdown_ = (int)StrictMath.floor(0.5d + (distance-maxBrakingDistance_)/maxSpeed_*1000);	//set time to recheck (using calculated distance and maximum speed!
+                            }	//don't need to change destinationCheckCountdown as we want to recheck next time
+                        }
+                    } else destinationCheckCountdown_ = (int)StrictMath.floor(0.5d + ((StrictMath.sqrt(distanceSquared)-maxBrakingDistance_)/maxSpeed_)*1000);		//set time to recheck (using minimum distance and maximum speed => can never be too high (vehicle might accelerate)!
+                } else destinationCheckCountdown_ -= timePerStep;
+
+                // =================================
+                // Step 2: Check for vehicle/blocking in front of this one or a slower street and try to change lane
+                // =================================
+                int result = checkCurrentBraking(curLane_);
+                boolean changedLane = false;
+                laneChangeCountdown -= timePerStep;
+
+                if(!isWaitingForSignal_() && curSpeed_ == 0)
+                {
+                    accuBlockingTime_ += timePerStep;
+                }
+                // found a blocking. Check if we might change lane to prevent this
+				if(laneChangeCountdown < 0 && result == 1){
+					if(curLane_ > 1){
+						curBrakingDistance_ += 2000;	//make it little bit longer so that changes are not made too often if one lane has a little bit more space ;)
+						int result2 = checkCurrentBraking(curLane_-1);
+						curBrakingDistance_ -= 2000;
+						if(result2 == 0 && checkLaneFree(curLane_+1)){	// only change lane if there are no obstacles on other lane
+							newLane_ = curLane_ - 1;
+						//	changedLane = true;
+							changedLane = false;
+							laneChangeCountdown = LANE_CHANGE_INTERVAL;
+							result = 0;
+						}
+
+					}
+					if(result == 1 && curStreet_.getLanesCount() > curLane_){
+						curBrakingDistance_ += 2000;
+						int result2 = checkCurrentBraking(curLane_+1);
+						curBrakingDistance_ -= 2000;
+						if(result2 == 0 && checkLaneFree(curLane_+1)){	// only change lane if there are no obstacles on other lane
+							newLane_ = curLane_ + 1;
+						//	changedLane = true;
+							changedLane = false;
+							laneChangeCountdown = LANE_CHANGE_INTERVAL;
+							result = 0;
+						}
+					}
+				}
+
+                boolean brakeOnce = false;
+                if(result > 0){
+                    brakeOnce = true;
+                }
+
+                // =================================
+                // Step 3: Check if we can change to the right lane
+                // =================================
+				if(laneChangeCountdown < 0 && curLane_ > 1 && !changedLane && result == 0){
+					if(checkLaneFree(curLane_ - 1)){
+						newLane_ = curLane_ - 1;
+						laneChangeCountdown = LANE_CHANGE_INTERVAL;
+					}
+				}
+
+                // =================================
+                // Step 4: Break or accelerate
+                // =================================
+                if(brakeForDestinationCountdown_ > 0 && brakeForDestination_) {
+                    brakeForDestinationCountdown_ -= timePerStep;
+                }
+                if((brakeForDestinationCountdown_ <= 0 && brakeForDestination_) || brakeOnce){
+                    newSpeed_ = curSpeed_ - (brakingRate_ * (double)timePerStep/1000);
+                    if(!brakeOnce && newSpeed_ < brakingRate_/2) newSpeed_ = brakingRate_/2;
+
+                }
+                if(!brakeForDestination_ && !brakeOnce){		//if no breaking is scheduled we can accelerate (we don't need to look forward here because cars are not allowed by law to accelerate before they're on a "faster" street :D)
+                    if(curSpeed_ < curStreet_.getSpeed()) {
+                        newSpeed_ = curSpeed_ + (accelerationRate_ * (double)timePerStep/1000);
+                    }
+                }
+
+                // =================================
+                // Step 5: Correct to suit hard limits
+                // =================================
+                if(newSpeed_ > maxSpeed_) newSpeed_ = maxSpeed_;
+                else if (newSpeed_ < 0) newSpeed_ = 0;	//no negative speed
+                if(newSpeed_ > curStreet_.getSpeed() && this != Renderer.getInstance().getAttackerVehicle()) newSpeed_ = curStreet_.getSpeed();
+            }
+
+
+            /**
+             * 暫時不啟用功能
+            // =================================
+            // Step 6: Check message/beacons/penalties countdown and cleanup
+            // =================================
+
+            // in this first simulation step, no other communication is done. So we can we can some work concerning messages and
+            // known vehicles here without synchronization problems!
+            if(isWiFiEnabled() && communicationEnabled_){
+                if(knownMessages_.hasNewMessages()) knownMessages_.processMessages();
+                communicationCountdown_ -= timePerStep;
+                if(communicationCountdown_ < 1) knownMessages_.checkOutdatedMessages(true);
+
+                knownPenaltiesTimeoutCountdown_ -= timePerStep;
+                if(knownPenaltiesTimeoutCountdown_ < 1){
+                    if(knownPenalties_.getSize() > 0) knownPenalties_.checkValidUntil();
+                    knownPenaltiesTimeoutCountdown_ += KNOWN_PENALTIES_TIMEOUT_CHECKINTERVAL;
+                }
+
+                if(beaconsEnabled_){
+                    beaconCountdown_ -= timePerStep;
+
+                    // recheck known vehicles for outdated entries.
+                    if(knownVehiclesTimeoutCountdown_ < 1){
+                        knownVehiclesList_.checkOutdatedVehicles();
+                        knownVehiclesTimeoutCountdown_ += KNOWN_VEHICLES_TIMEOUT_CHECKINTERVAL;
+                    } else knownVehiclesTimeoutCountdown_ -= timePerStep;
+
+                    // recheck known RSUs for outdated entries.
+                    if(knownRSUsTimeoutCountdown_ < 1){
+                        knownRSUsList_.checkOutdatedRSUs();
+                        knownRSUsTimeoutCountdown_ += KNOWN_RSUS_TIMEOUT_CHECKINTERVAL;
+                    } else knownRSUsTimeoutCountdown_ -= timePerStep;
+                }
+
+
+
+                // =================================
+                // Step 7: Check if this vehicle is currently in a traffic jam and should create a message.
+                // =================================
+                lastMessageCreated += timePerStep;
+                if(newSpeed_ == 0){
+                    stopTime_ += timePerStep;
+
+                    if(stopTime_ > TIME_FOR_JAM && !waitingForSignal_){
+
+                        isTrafficJam_ = true;
+                        if(lastMessageCreated >= MESSAGE_INTERVAL){
+                            lastMessageCreated = 0;
+                            // find the destination for the message. Will be sent to the next junction behind us!
+                            boolean tmpDirection = curDirection_;
+                            Street tmpStreet = curStreet_;
+                            Street[] crossingStreets;
+                            Node tmpNode;
+                            int i, j = 0, destX = -1, destY = -1;
+                            do{
+                                ++j;
+                                if(tmpDirection){
+                                    tmpNode = tmpStreet.getStartNode();
+                                } else {
+                                    tmpNode = tmpStreet.getEndNode();
+                                }
+                                if(tmpNode.getJunction() != null){
+                                    destX = tmpNode.getX();
+                                    destY = tmpNode.getY();
+                                    break;
+                                }
+                                crossingStreets = tmpNode.getCrossingStreets();
+                                // find next street behind of us
+                                if(crossingStreets.length != 2){	// end of a street or some special case. don't forward any further
+                                    destX = tmpNode.getX();
+                                    destY = tmpNode.getY();
+                                    break;
+                                }
+                                for(i = 0; i < crossingStreets.length; ++i){
+                                    if(crossingStreets[i] != tmpStreet){
+                                        tmpStreet = crossingStreets[i];
+                                        if(tmpStreet.getStartNode() == tmpNode) tmpDirection = false;
+                                        else tmpDirection = true;
+                                        break;
+                                    }
+                                }
+                            } while(tmpStreet != curStreet_ && j < 10000);	//hard limit of 10000 nodes to maximally go back or if again arriving at source street (=>circle!)
+                            // found destination...now insert into messagequeue
+                            if(destX != -1 && destY != -1){
+                                int direction = -1;
+                                if(!curDirection_) direction = 1;
+                                int time = Renderer.getInstance().getTimePassed();
+                                PenaltyMessage message = new PenaltyMessage(destX, destY, PENALTY_MESSAGE_RADIUS, time + PENALTY_MESSAGE_VALID, curStreet_, direction, PENALTY_MESSAGE_VALUE, time + PENALTY_VALID);
+                                long dx = message.getDestinationX_() - curX_;
+                                long dy = message.getDestinationY_() - curY_;
+                                if((long)PENALTY_MESSAGE_RADIUS * PENALTY_MESSAGE_RADIUS >= (dx*dx + dy*dy)){
+                                    message.setFloodingMode(true);	// enable flooding mode if within distance!
+                                }
+                                knownMessages_.addMessage(message, false, true);
+                                ++messagesCreated_;
+                            }
+                        }
+                    }
+                } else stopTime_ = 0;
+
+
+
+                // =================================
+                // Step 8: Check if vehicle is inside a mix zone and change vehicle ID if entering mix zone
+                // =================================
+
+                if(mixZonesEnabled_){
+                    mixCheckCountdown_ -= MIX_CHECK_INTERVAL;
+                    if(mixCheckCountdown_ <= 0){
+                        int MapMinX, MapMinY, MapMaxX, MapMaxY, RegionMinX, RegionMinY, RegionMaxX, RegionMaxY;
+                        int i, j, k, size;
+                        Node node;
+                        long dx, dy, mixDistanceSquared = (long)getMaxMixZoneRadius() * getMaxMixZoneRadius();
+                        boolean needsToMix = false;
+
+                        // Minimum x coordinate to be considered
+                        long tmp = curX_ - getMaxMixZoneRadius();
+                        if (tmp < 0) MapMinX = 0;	// Map stores only positive coordinates
+                        else if(tmp < Integer.MAX_VALUE) MapMinX = (int) tmp;
+                        else MapMinX = Integer.MAX_VALUE;
+
+                        // Maximum x coordinate to be considered
+                        tmp = curX_ + getMaxMixZoneRadius();
+                        if (tmp < 0) MapMaxX = 0;
+                        else if(tmp < Integer.MAX_VALUE) MapMaxX = (int) tmp;
+                        else MapMaxX = Integer.MAX_VALUE;
+
+                        // Minimum y coordinate to be considered
+                        tmp = curY_ - getMaxMixZoneRadius();
+                        if (tmp < 0) MapMinY = 0;
+                        else if(tmp < Integer.MAX_VALUE) MapMinY = (int) tmp;
+                        else MapMinY = Integer.MAX_VALUE;
+
+                        // Maximum y coordinate to be considered
+                        tmp = curY_ + getMaxMixZoneRadius();
+                        if (tmp < 0) MapMaxY = 0;
+                        else if(tmp < Integer.MAX_VALUE) MapMaxY = (int) tmp;
+                        else MapMaxY = Integer.MAX_VALUE;
+
+                        // Get the regions to be considered
+                        Region tmpregion = MAP.getRegionOfPoint(MapMinX, MapMinY);
+                        RegionMinX = tmpregion.getX();
+                        RegionMinY = tmpregion.getY();
+
+                        tmpregion = MAP.getRegionOfPoint(MapMaxX, MapMaxY);
+                        RegionMaxX = tmpregion.getX();
+                        RegionMaxY = tmpregion.getY();
+
+                        // only check those regions which are within the radius
+                        for(i = RegionMinX; i <= RegionMaxX; ++i){
+
+                            for(j = RegionMinY; j <= RegionMaxY; ++j){
+                                Node[] mixNodes = regions_[i][j].getMixZoneNodes();
+                                size = mixNodes.length;
+                                for(k = 0; k < size; ++k){
+                                    node = mixNodes[k];
+                                    // precheck if the mixing node is near enough and valid (check is not exact as its a rectangular box and not circle)
+                                    if(node.getX() >= curX_ - node.getMixZoneRadius() && node.getX() <= curX_ + node.getMixZoneRadius() && node.getY() >= curY_ - node.getMixZoneRadius() && node.getY() <= curY_ + node.getMixZoneRadius()){
+                                        dx = node.getX() - curX_;
+                                        dy = node.getY() - curY_;
+
+                                        mixDistanceSquared = node.getMixZoneRadius() * node.getMixZoneRadius();
+                                        if((dx * dx + dy * dy) <= mixDistanceSquared){	// Pythagorean theorem: a^2 + b^2 = c^2 but without the needed Math.sqrt to save a little bit performance
+                                            needsToMix = true;
+                                            curMixNode_ = node;
+
+                                            //change values to break out of all loops as we don't need to check further!
+                                            i = RegionMaxX;
+                                            j = RegionMaxY;
+                                            k = mixNodes.length -1;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        if(needsToMix != isInMixZone_){
+                            if(privacyDataLogged_){
+                                if(needsToMix) 	PrivacyLogWriter.log(Renderer.getInstance().getTimePassed() + ":Steady ID:" + this.steadyID_ + ":Pseudonym:" + Long.toHexString(this.ID_) + ":TraveledDistance:" + totalTravelDistance_ + ":TraveledTime:" + totalTravelTime_ + ":Node ID:" + curMixNode_.getNodeID() + ":Direction:IN" + ":Street:" + this.getCurStreet().getName() + ":StreetSpeed:" + this.getCurStreet().getSpeed() + ":VehicleSpeed:" + this.getCurSpeed() +  ":x:" + this.curX_ + ":y:" + this.curY_);
+                                else PrivacyLogWriter.log(Renderer.getInstance().getTimePassed() + ":Steady ID:" + this.steadyID_ + ":Pseudonym:" + Long.toHexString(this.ID_) + ":TraveledDistance:" + totalTravelDistance_ + ":TraveledTime:" + totalTravelTime_ + ":Node ID:" + curMixNode_.getNodeID() + ":Direction:OUT" + ":Street:" + this.getCurStreet().getName() + ":StreetSpeed:" + this.getCurStreet().getSpeed() + ":VehicleSpeed:" + this.getCurSpeed() + ":x:" + this.curX_ + ":y:" + this.curY_);
+                            }
+                            if(needsToMix){
+                                ++IDsChanged_;
+                                ID_ = ownRandom_.nextLong();
+                            }
+                            isInMixZone_ = needsToMix;
+                        }
+                        if(!needsToMix) curMixNode_ = null;
+                    }
+                }
+
+
+            }
+            */
+
+
+        }
     }
+
+    /**
+     * Check if a lane is free. It is considered as free if
+     * <ul><li>in front of this vehicle there's minimum double the current braking distance space and</li>
+     * <li>behind there's at least the current braking distance + 10m space</li>
+     * </ul>
+     *
+     * @param lane 	the lane to check
+     *
+     * @return <code>true</code> if lane is free, else <code>false</code>
+     */
+
+    private final boolean checkLaneFree(int lane){
+        // =================================
+        // Step 1: Check space in front
+        // =================================
+        boolean foundNextVehicle = false;
+        int neededFreeDistance = curBrakingDistance_ / 2;
+        // check the lane object in front of us (on our street)
+        if(next_ != null){
+            if(next_.getCurLane() == lane){	// next one is on the same lane
+                foundNextVehicle = true;
+                if((curDirection_ && next_.getCurPosition()-curPosition_ < neededFreeDistance) || (!curDirection_ && curPosition_-next_.getCurPosition() < neededFreeDistance)){
+                    if(curSpeed_ > next_.getCurSpeed()-brakingRate_) return false;
+                }
+            } else {	// need to search for the next which is on our lane
+                LaneObject tmpLaneObject = next_.getNext();
+                while(tmpLaneObject != null){
+                    if(tmpLaneObject.getCurLane() == lane){
+                        foundNextVehicle = true;
+                        if((curDirection_ && tmpLaneObject.getCurPosition()-curPosition_ < neededFreeDistance) || (!curDirection_ && curPosition_-tmpLaneObject.getCurPosition() < neededFreeDistance)){
+                            if(curSpeed_ > next_.getCurSpeed()-brakingRate_) return false;
+                        }
+                        break;	// only check the first on our lane!
+                    }
+                    tmpLaneObject = tmpLaneObject.getNext();
+                }
+            }
+        }
+        double distance;
+        if(curDirection_) distance = curStreet_.getLength() - curPosition_;
+        else distance = curPosition_;
+        // only do the big calculation if the current street is empty AND the remainder of the current street is shorter than the braking distance
+        if(!foundNextVehicle && distance < neededFreeDistance){
+            Street tmpStreet = curStreet_;
+            LaneObject tmpLaneObject;
+            boolean tmpDirection = curDirection_;
+            // check next streets that we will visit. If routing is empty this automatically skips (which is what we actually want)
+            for(int i = routePosition_ + 1; i < routeStreets_.length; ++i){
+                tmpDirection = routeDirections_[i];
+                tmpStreet = routeStreets_[i];
+
+                if(!foundNextVehicle){
+                    tmpLaneObject = tmpStreet.getFirstLaneObject(tmpDirection);
+                    while(tmpLaneObject != null){
+                        if(tmpLaneObject.getCurLane() == lane){
+                            foundNextVehicle = true;
+                            if((tmpDirection && tmpLaneObject.getCurPosition()+distance < neededFreeDistance) || (!tmpDirection && tmpStreet.getLength()-tmpLaneObject.getCurPosition()+distance < neededFreeDistance)){
+                                if(curSpeed_ > tmpLaneObject.getCurSpeed()-brakingRate_) return false;
+                            }
+                            break;
+                        }
+                        tmpLaneObject = tmpLaneObject.getNext();
+                    }
+                }
+
+                // calculate distance of the whole street. We can stop processing the next one if we get longer than braking distance
+                distance += tmpStreet.getLength();
+                if(distance > neededFreeDistance) break;
+            }
+        }
+
+        // =================================
+        // Step 2: Check space behind
+        // =================================
+        neededFreeDistance = curBrakingDistance_;
+        //neededFreeDistance = curBrakingDistance_ + 1000;
+        boolean foundPreviousVehicle = false;
+        // check the lane object before us (on our street)
+        if(previous_ != null){
+            if(previous_.getCurLane() == lane){	// is on the same lane
+                foundPreviousVehicle = true;
+                if((curDirection_ && curPosition_-previous_.getCurPosition() < neededFreeDistance) || (!curDirection_ && previous_.getCurPosition()-curPosition_ < neededFreeDistance)){
+                    if(curSpeed_ > previous_.getCurSpeed()-brakingRate_) return false;
+                }
+            } else {	// need to search for the previous one which is on our lane
+                LaneObject tmpLaneObject = previous_.getPrevious();
+                while(tmpLaneObject != null){
+                    if(tmpLaneObject.getCurLane() == lane){
+                        foundPreviousVehicle = true;
+                        if((curDirection_ && curPosition_-tmpLaneObject.getCurPosition() < neededFreeDistance) || (!curDirection_ && tmpLaneObject.getCurPosition()-curPosition_ < neededFreeDistance)){
+                            if(curSpeed_ > previous_.getCurSpeed()-brakingRate_) return false;
+                        }
+                        break;	// only check the first on our lane!
+                    }
+                    tmpLaneObject = tmpLaneObject.getPrevious();
+                }
+            }
+        }
+        if(curDirection_) distance = curPosition_;
+        else distance = curStreet_.getLength() - curPosition_;
+        // current street is not long enough. need to iterate backwards
+        if(!foundPreviousVehicle && distance < neededFreeDistance){
+            Street[] outgoingStreets;
+            Street tmpStreet = curStreet_, tmpStreet2;
+            LaneObject tmpLaneObject;
+            Node nextNode = null;
+            boolean tmpDirection = curDirection_;
+            int i;
+            // check previous streets. We can't use the routing here so it's limited to streets with no junctions which makes it a bit simpler.
+            while(true){
+                if(tmpDirection) nextNode = tmpStreet.getStartNode();
+                else nextNode = tmpStreet.getEndNode();
+                if(nextNode.getCrossingStreetsCount() != 2) return false;		// don't handle junctions!
+                else outgoingStreets = nextNode.getCrossingStreets();
+                for(i = 0; i < outgoingStreets.length; ++i){
+                    tmpStreet2 = outgoingStreets[i];
+                    if(tmpStreet2 != tmpStreet){
+                        tmpStreet = tmpStreet2;
+                        if(lane > tmpStreet.getLanesCount()) return false;
+                        if (tmpStreet2.getStartNode() == nextNode){
+                            tmpDirection = true;
+                            break;		// found street we want to => no need to look through others
+                        } else {
+                            tmpDirection = false;
+                            break;		// found street we want to => no need to look through others
+                        }
+                    }
+                }
+
+                if(!foundPreviousVehicle){
+                    tmpLaneObject = tmpStreet.getFirstLaneObject(tmpDirection);
+                    while(tmpLaneObject != null){
+                        if(tmpLaneObject.getCurLane() == lane){
+                            foundNextVehicle = true;
+                            if((tmpDirection && tmpStreet.getLength()-tmpLaneObject.getCurPosition()+distance < neededFreeDistance) || (!tmpDirection && tmpLaneObject.getCurPosition()+distance < neededFreeDistance)){
+                                if(curSpeed_ > tmpLaneObject.getCurSpeed()-brakingRate_) return false;
+                            }
+                            break;
+                        }
+                        tmpLaneObject = tmpLaneObject.getNext();
+                    }
+                }
+
+                // calculate distance of the whole street. We can stop processing the next one if we get longer than braking distance
+                distance += tmpStreet.getLength();
+                if(distance > neededFreeDistance) break;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Check if braking is necessary on the specified lane.
+     *
+     * @param lane	the lane to check
+     *
+     * @return <code>0</code> if braking is not necessary, <code>1</code> if braking is necessary because of an object on a lane,
+     * 	<code>2</code> if braking is necessary because of a lower speed street or junction
+     */
+    private final int checkCurrentBraking(int lane){
+        boolean foundNextVehicle = false;
+        // check the lane object in front of us (on our street). This is separated from the loop beneath as this is done most of the time!
+        if(next_ != null){
+            if(next_.getCurLane() == lane){	// next one is on the same lane
+                foundNextVehicle = true;
+                if((curDirection_ && next_.getCurPosition()-curPosition_ < curBrakingDistance_) || /** 正向且 */
+                        (!curDirection_ && curPosition_-next_.getCurPosition() < curBrakingDistance_)){
+
+                    if(curSpeed_ > next_.getCurSpeed()-brakingRate_) return 1;
+                }
+            } else {	// need to search for the next which is on our lane
+                LaneObject tmpLaneObject = next_.getNext();
+                while(tmpLaneObject != null){
+                    if(tmpLaneObject.getCurLane() == lane){
+                        foundNextVehicle = true;
+                        if((curDirection_ && tmpLaneObject.getCurPosition()-curPosition_ < curBrakingDistance_) ||
+                                (!curDirection_ && curPosition_-tmpLaneObject.getCurPosition() < curBrakingDistance_)){
+
+                            if(curSpeed_ > next_.getCurSpeed()-brakingRate_) return 1;
+                        }
+                        break;	// only check the first on our lane!
+                    }
+                    tmpLaneObject = tmpLaneObject.getNext();
+                }
+            }
+        }
+        // didn't need to brake because of vehicle directly in front of us
+        double distance;
+        if(curDirection_) distance = curStreet_.getLength() - curPosition_;
+        else distance = curPosition_;
+        // only do the big calculation if the current street is empty AND the remainder of the current street is shorter than the braking distance
+        if(distance < curBrakingDistance_){
+            Street tmpStreet = curStreet_;
+            LaneObject tmpLaneObject;
+            Node junctionNode, nextNode;
+            boolean tmpDirection = curDirection_;
+            boolean gotJunctionPermission = false;
+            int tmpLane = lane;
+            int i;
+            int j = routeStreets_.length-1;
+
+            // check next streets that we will visit. If routing is empty this automatically skips (which is what we actually want)
+            for(i = routePosition_; i < j;){
+                //check for junctions
+                if(tmpDirection) junctionNode = tmpStreet.getEndNode();
+                else junctionNode = tmpStreet.getStartNode();
+                if(junctionNode.getJunction() != null){
+                    if(junctionAllowed_ != junctionNode){
+                        if(routeDirections_[i+1]) nextNode = routeStreets_[i+1].getEndNode();
+                        else nextNode = routeStreets_[i+1].getStartNode();
+                        if(junctionNode.isHasTrafficSignal_()){
+                            if(junctionNode.getJunction().canPassTrafficLight(this, tmpStreet, nextNode)){
+                                junctionAllowed_ = junctionNode;
+                                gotJunctionPermission = true;
+                            }
+                            else {
+                                waitingForSignal_ = true;
+                                return 2;
+                            }
+                        }
+                        else{
+                            int priority;
+                            if(tmpDirection) priority = junctionNode.getJunction().getJunctionPriority(tmpStreet.getStartNode(), nextNode);
+                            else priority = junctionNode.getJunction().getJunctionPriority(tmpStreet.getEndNode(), nextNode);
+                            if(priority != 1){	// don't do anything on priority streets
+                                // don't turn off faster than about 35km/h
+                                if(curSpeed_ > 1000){
+                                    return 2;
+                                } else if(priority > 2){
+                                    junctionNode.getJunction().addWaitingVehicle(this, priority);
+                                    if(!junctionNode.getJunction().canPassJunction(this, priority, nextNode)) return 2;
+                                    else {
+                                        junctionAllowed_ = junctionNode;
+                                        gotJunctionPermission = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                //get next street
+                ++i;
+                tmpDirection = routeDirections_[i];
+                tmpStreet = routeStreets_[i];
+                if(tmpLane > tmpStreet.getLanesCount()) tmpLane = tmpStreet.getLanesCount();
+
+                // Check if next street has smaller speed limit
+                if(tmpStreet.getSpeed() < curSpeed_) {
+                    if(gotJunctionPermission) {
+                        junctionAllowed_.getJunction().allowOtherVehicle();
+                        junctionAllowed_ = null;
+                    }
+                    return 2;
+                }
+
+                // Check if first lane object of next street on our lane forces us to stop
+                if(!foundNextVehicle){
+                    tmpLaneObject = tmpStreet.getFirstLaneObject(tmpDirection);
+                    while(tmpLaneObject != null){
+                        if(tmpLaneObject.getCurLane() == tmpLane){
+                            foundNextVehicle = true;
+                            if((tmpDirection && tmpLaneObject.getCurPosition()+distance < curBrakingDistance_) || (!tmpDirection && tmpStreet.getLength()-tmpLaneObject.getCurPosition()+distance < curBrakingDistance_)){
+                                if(curSpeed_ > tmpLaneObject.getCurSpeed()-brakingRate_){
+                                    if(gotJunctionPermission) {
+                                        junctionAllowed_.getJunction().allowOtherVehicle();
+                                        junctionAllowed_ = null;
+                                    }
+                                    return 1;
+                                }
+                            }
+                            break;
+                        }
+                        tmpLaneObject = tmpLaneObject.getNext();
+                    }
+                }
+
+                // calculate distance of the whole street.
+                distance += tmpStreet.getLength();
+                // We can stop processing the next one if we get longer than braking distance
+                if(distance > curBrakingDistance_) break;
+                if(tmpStreet == destinations_.peekFirst().getStreet()) break;
+
+            }
+        }
+        return 0;
+    }
+
+    /**
+     * Resets this vehicle so that it can be reused. It will travel on the same route as last time!
+     */
+    public void reset(){
+        //reset countdowns and other variables
+
+        ID_ = ownRandom_.nextLong();
+        steadyID_ = steadyIDCounter++;
+        curSpeed_ = brakingRate_/2;
+        newSpeed_ = curSpeed_;
+        accuWaitTime_ = 0;
+        accuBlockingTime_ = 0;
+        totalTravelTime_ = 0;
+        totalTravelDistance_ = 0;
+        newLane_ = 1;
+        active_ = false;
+        speedAtLastBrakingDistanceCalculation_ = 0;
+        isInMixZone_ = false;
+        junctionAllowed_ = null;
+        brakeForDestination_ = false;
+        brakeForDestinationCountdown_ = Integer.MAX_VALUE;
+        destinationCheckCountdown_ = 0;
+        laneChangeCountdown = 0;
+        communicationCountdown_ = 0;
+        knownVehiclesTimeoutCountdown_ = 0;
+        knownPenaltiesTimeoutCountdown_ = 0;
+        beaconCountdown_ = (int)Math.round(curPosition_)%beaconInterval_;
+        communicationCountdown_ = (int)Math.round(curPosition_)%communicationInterval_;
+        mixCheckCountdown_ = (int)Math.round(curPosition_)%MIX_CHECK_INTERVAL;
+        lastMessageCreated = 0;
+        stopTime_ = 0;
+        messagesCreated_ = 0;
+        IDsChanged_ = 0;
+
+
+        /**
+         * 暫時不用此功能
+        //reset communication info
+        knownVehiclesList_.clear();
+        knownPenalties_.clear();
+        knownMessages_.clear();
+
+        //reset RSU infos
+        knownRSUsList_.clear();
+        knownRSUsTimeoutCountdown_ = 0;
+        */
+
+
+        // reset position
+        curX_ = startingWayPoint_.getX();
+        curY_ = startingWayPoint_.getY();
+        curPosition_ = startingWayPoint_.getPositionOnStreet();
+        curStreet_ = startingWayPoint_.getStreet();
+        curWaitTime_ = startingWayPoint_.getWaittime();
+
+        // recalculate routing information
+        destinations_ = originalDestinations_.clone();
+        if(curStreet_.isOneway()){
+            while(!destinations_.isEmpty() && (!calculateRoute(false, false) || destinations_.peekFirst().getStreet() == curStreet_)){
+                curWaitTime_ = destinations_.pollFirst().getWaittime();
+            }
+        } else {
+            while(!destinations_.isEmpty() && (!calculateRoute(false, false) || destinations_.peekFirst().getStreet() == curStreet_)){
+                curWaitTime_ = destinations_.pollFirst().getWaittime();
+            }
+        }
+        if(curWaitTime_ == 0){
+            active_ = true;
+            curStreet_.addLaneObject(this, curDirection_);
+        }
+        calculatePosition();
+
+        //reset region
+        curRegion_.delVehicle(this);
+        curRegion_ = MAP.getRegionOfPoint(curX_, curY_);
+        curRegion_.addVehicle(this, false);
+
+        mayBeRecycled_ = false;
+    }
+
+    /**
+     * Move the vehicle one step forward. Please check if the vehicle is active before calling this!
+     *
+     * @param timePerStep	the time per step in milliseconds
+     */
+    public void move(int timePerStep){
+        if(curWaitTime_ == 0 && curStreet_ != null){
+
+            curLane_ = newLane_;
+            curSpeed_ = newSpeed_;
+
+            // =================================
+            // Step 1: Move the vehicle according to its speed
+            // =================================
+            double tmpPosition, newPosition = curPosition_, movement;
+            WayPoint nextTarget;
+            movement = curSpeed_ * (timePerStep/1000.0);
+
+            if(isWaitingForSignal_())
+            {
+                accuWaitTime_ += timePerStep;
+
+                if(accuWaitTime_ >= PRIORITY_TIMEOUT)
+                {
+                    int times = accuWaitTime_ / PRIORITY_TIMEOUT;
+
+                }
+            }
+
+            totalTravelTime_ += timePerStep;
+            totalTravelDistance_ += movement;	// not totally precise when reaching destination but should be enough as long as timePerStep is less than a second...
+            Street oldStreet = curStreet_;
+            boolean oldDirection = curDirection_;
+            while(movement > 0){
+                if(curDirection_) tmpPosition = newPosition + movement;
+                else tmpPosition = newPosition - movement;
+                // no more routing points and on the street specified by the waypoint
+                if(routePosition_ == routeStreets_.length-1 && destinations_.peekFirst().getStreet() == curStreet_){
+                    nextTarget = destinations_.peekFirst();	//doing this intentionally after the if! The peekFirst() is performed twice but in almost always the first one isn't even reached!
+                    if((curDirection_ && nextTarget.getPositionOnStreet() < tmpPosition) || (!curDirection_ && nextTarget.getPositionOnStreet() > tmpPosition)){		// gone over the position specified by the waypoint
+                        //we're on the last street of a routing but we still got more waypoints
+                        movement = tmpPosition - nextTarget.getPositionOnStreet();
+                        newPosition = nextTarget.getPositionOnStreet();
+                        do{
+                            destinations_.poll();
+                            if(destinations_.isEmpty()) break;
+                            curWaitTime_ = destinations_.peekFirst().getWaittime();
+                        } while(!calculateRoute(true, false));
+                        if(destinations_.isEmpty()){
+                            active_ = false;	//found no new destination where we can route to
+                            curWaitTime_ = Integer.MIN_VALUE;
+                            if(totalTravelTime_ >= minTravelTimeForRecycling_) mayBeRecycled_ = true;
+                            break;
+                        } else brakeForDestinationCountdown_ = Integer.MAX_VALUE;
+                        if(curWaitTime_ > 0){
+                            curSpeed_ = 0;
+                            break;		//movement to next destination shall begin after some waiting on the current location
+                        } else brakeForDestination_ = false;		//stop braking for destination
+                    } else {
+                        newPosition = tmpPosition;
+                        movement = 0;
+                    }
+                    // leaving current street as movement is larger than the street length!
+                } else if((curDirection_ && tmpPosition > curStreet_.getLength()) || (!curDirection_ && tmpPosition < 0)){
+                    if(curDirection_) movement = tmpPosition - curStreet_.getLength();
+                    else movement = -tmpPosition;
+                    ++routePosition_;
+                    if(routePosition_ >= routeStreets_.length){	//no more routing entries
+                        //create a correct last position if routing to a next waypoint fails later
+                        if(curDirection_) newPosition = curStreet_.getLength();
+                        else newPosition = 0;
+                        do{
+                            destinations_.poll();
+                            if(destinations_.isEmpty()) break;
+                            curWaitTime_ = destinations_.peekFirst().getWaittime();
+                        } while(!calculateRoute(true, false));
+                        if(destinations_.isEmpty()){
+                            active_ = false;	//found no new destination where we can route to
+                            curWaitTime_ = Integer.MIN_VALUE;
+                            if(totalTravelTime_ >= minTravelTimeForRecycling_) mayBeRecycled_ = true;
+                            break;
+                        } else brakeForDestinationCountdown_ = Integer.MAX_VALUE;
+                        if(curWaitTime_ > 0){
+                            curSpeed_ = 0;
+                            break;		//movement to next destination shall begin after some waiting on the current location
+                        } else brakeForDestination_ = false;	//stop braking for destination
+                    }
+                    curDirection_ = routeDirections_[routePosition_];
+                    curStreet_ = routeStreets_[routePosition_];
+                    if(curDirection_){
+                        if(curStreet_.getStartNode() == junctionAllowed_){
+                            junctionAllowed_.getJunction().allowOtherVehicle();
+                            junctionAllowed_ = null;
+                        }
+                        newPosition = 0;
+                    } else {
+                        if(curStreet_.getEndNode() == junctionAllowed_){
+                            junctionAllowed_.getJunction().allowOtherVehicle();
+                            junctionAllowed_ = null;
+                        }
+                        newPosition = curStreet_.getLength();
+                    }
+                } else {
+                    newPosition = tmpPosition;
+                    movement = 0;
+                }
+            }
+            if(!active_ || curWaitTime_ != 0) {
+                oldStreet.delLaneObject(this, oldDirection);
+                curPosition_ = newPosition;
+            }
+            else if(curStreet_ != oldStreet || curDirection_ != oldDirection){
+                if(curStreet_.getLanesCount() < curLane_){
+                    curLane_ = curStreet_.getLanesCount();
+                    newLane_ = curLane_;
+                }
+                oldStreet.delLaneObject(this, oldDirection);
+                curPosition_ = newPosition;
+                curStreet_.addLaneObject(this, curDirection_);
+            } else if (curLane_ > 1){	// all vehicles which are on multilanes and which did not change street need to call the update method in the LaneContainer to preserve order!
+                curStreet_.updateLaneObject(this, curDirection_, newPosition);	// updates curPosition_ in the synchronized method!
+            } else {
+                curPosition_ = newPosition;
+            }
+
+            // =================================
+            // Step 2: Recalculate values
+            // =================================
+
+            // recalculate position on map
+            if(curStreet_ != null){
+                calculatePosition();
+            }
+
+            // recalculate region
+            if(curX_ < curRegion_.getLeftBoundary() || curX_ > curRegion_.getRightBoundary() || curY_ < curRegion_.getUpperBoundary() || curY_ > curRegion_.getLowerBoundary()){
+                curRegion_.delVehicle(this);
+                curRegion_ = MAP.getRegionOfPoint(curX_, curY_);
+                curRegion_.addVehicle(this, false);
+            }
+        }
+
+    }
+
 
     /**
      * ///////// getter & setter (start) ///////////

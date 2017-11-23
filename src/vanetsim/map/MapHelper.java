@@ -1,5 +1,7 @@
 package vanetsim.map;
 
+import vanetsim.scenario.Vehicle;
+
 /**
  * This class holds some geometric functions needed for various calculations on the map. It's just a helper
  * class to make the map class smaller and as this class has no variables, all functions are declared static.
@@ -186,6 +188,172 @@ public class MapHelper {
             else return (tmp1 * tmp1 + tmp2 * tmp2);
         } else return Double.MAX_VALUE;
     }
+
+
+    /**
+     * Returns the nearest vehicle to a given point. First all regions are calculated which are within <code>maxDistance</code>. Then, ALL
+     * vehicles in these regions are checked if they are within this <code>maxDistance</code> and the best one is returned (if any exists).
+     * Note that only vehicles which are currently active will be returned!
+     *
+     * @param x 			the x coordinate of the given point
+     * @param y 			the x coordinate of the given point
+     * @param maxDistance	the maximum distance; use <code>Integer.MAX_VALUE</code> if you just want to get any nearest vehicle but note
+     * 						that this costs a lot of performance because ALL regions and ALL vehicles are checked!
+     * @param distance		an array used to return the distance between the nearest point and the point given. This should be a <code>long[1]</code> array!
+     *
+     * @return the nearest street or <code>null</code> if none was found or an error occured
+     */
+    public static Vehicle findNearestVehicle(int x, int y, int maxDistance, long[] distance){
+        Map map = Map.getInstance();
+        Region[][] Regions = map.getRegions();
+        if(Regions != null && distance.length > 0){
+            int mapMinX, mapMinY, mapMaxX, mapMaxY, regionMinX, regionMinY, regionMaxX, regionMaxY;
+            Vehicle[] vehicles;
+            int i, j, k, size;
+            long dx, dy;
+            Vehicle tmpVehicle, bestVehicle = null;
+            long tmpDistance, bestDistance = Long.MAX_VALUE;
+            long maxDistanceSquared = (long)maxDistance * maxDistance;
+
+            // Minimum x coordinate to be considered
+            long tmp = x - maxDistance;
+            if (tmp < 0) mapMinX = 0;		// Map stores only positive coordinates
+            else if(tmp < Integer.MAX_VALUE) mapMinX = (int) tmp;
+            else mapMinX = Integer.MAX_VALUE;
+
+            // Maximum x coordinate to be considered
+            tmp = x + (long)maxDistance;
+            if (tmp < 0) mapMaxX = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMaxX = (int) tmp;
+            else mapMaxX = Integer.MAX_VALUE;
+
+            // Minimum y coordinate to be considered
+            tmp = y - maxDistance;
+            if (tmp < 0) mapMinY = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMinY = (int) tmp;
+            else mapMinY = Integer.MAX_VALUE;
+
+            // Maximum y coordinate to be considered
+            tmp = y + (long)maxDistance;
+            if (tmp < 0) mapMaxY = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMaxY = (int) tmp;
+            else mapMaxY = Integer.MAX_VALUE;
+
+            // Get the regions to be considered
+            Region tmpregion = map.getRegionOfPoint(mapMinX, mapMinY);
+            regionMinX = tmpregion.getX();
+            regionMinY = tmpregion.getY();
+
+            tmpregion = map.getRegionOfPoint(mapMaxX, mapMaxY);
+            regionMaxX = tmpregion.getX();
+            regionMaxY = tmpregion.getY();
+
+            // only iterate through those regions which are within the distance
+            for(i = regionMinX; i <= regionMaxX; ++i){
+                for(j = regionMinY; j <= regionMaxY; ++j){
+                    vehicles = Regions[i][j].getVehicleArray();
+                    size = vehicles.length;
+                    for(k = 0; k < size; ++k){
+                        tmpVehicle = vehicles[k];
+                        if(tmpVehicle.isActive() && tmpVehicle.getX() >= mapMinX && tmpVehicle.getX() <= mapMaxX && tmpVehicle.getY() >= mapMinY && tmpVehicle.getY() <= mapMaxY){	// precheck with a recangular bounding box should sort out most cases
+                            dx = tmpVehicle.getX() - x;
+                            dy = tmpVehicle.getY() - y;
+                            tmpDistance = dx * dx + dy * dy;
+                            if(tmpDistance < maxDistanceSquared && tmpDistance < bestDistance){
+                                bestDistance = tmpDistance;
+                                bestVehicle = tmpVehicle;
+                            }
+                        }
+
+                    }
+                }
+            }
+            distance[0] = bestDistance;
+            return bestVehicle;
+        } else return null;
+    }
+
+    /**
+     * Returns the nearest node to a given point. First all regions are calculated which are within <code>maxDistance</code>. Then, ALL
+     * nodes in these regions are checked if they are within this <code>maxDistance</code> and the best one is returned (if any exists).
+     *
+     * @param x 			the x coordinate of the given point
+     * @param y 			the x coordinate of the given point
+     * @param maxDistance 	the maximum distance; use <code>Integer.MAX_VALUE</code> if you just want to get any nearest vehicle but note
+     * 						that this costs a lot of performance because ALL regions and ALL nodes are checked!
+     * @param distance 		an array used to return the distance between the nearest point and the point given. This should be a <code>long[1]</code> array!
+     *
+     * @return the nearest node or <code>null</code> if none was found or an error occured
+     */
+    public static Node findNearestNode(int x, int y, int maxDistance, long[] distance){
+        Map map = Map.getInstance();
+        Region[][] Regions = map.getRegions();
+        if(Regions != null && distance.length > 0){
+            int mapMinX, mapMinY, mapMaxX, mapMaxY, regionMinX, regionMinY, regionMaxX, regionMaxY;
+            Node[] nodes;
+            int i, j, k;
+            Node tmpNode, bestNode = null;
+            long tmpDistance, bestDistance = Long.MAX_VALUE;
+            long maxDistanceSquared = (long)maxDistance * maxDistance;
+
+            // Minimum x coordinate to be considered
+            long tmp = x - maxDistance;
+            if (tmp < 0) mapMinX = 0;	// Map stores only positive coordinates
+            else if(tmp < Integer.MAX_VALUE) mapMinX = (int) tmp;
+            else mapMinX = Integer.MAX_VALUE;
+
+            // Maximum x coordinate to be considered
+            tmp = x + (long)maxDistance;
+            if (tmp < 0) mapMaxX = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMaxX = (int) tmp;
+            else mapMaxX = Integer.MAX_VALUE;
+
+            // Minimum y coordinate to be considered
+            tmp = y - maxDistance;
+            if (tmp < 0) mapMinY = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMinY = (int) tmp;
+            else mapMinY = Integer.MAX_VALUE;
+
+            // Maximum y coordinate to be considered
+            tmp = y + (long)maxDistance;
+            if (tmp < 0) mapMaxY = 0;
+            else if(tmp < Integer.MAX_VALUE) mapMaxY = (int) tmp;
+            else mapMaxY = Integer.MAX_VALUE;
+
+            // Get the regions to be considered
+            Region tmpregion = map.getRegionOfPoint(mapMinX, mapMinY);
+            regionMinX = tmpregion.getX();
+            regionMinY = tmpregion.getY();
+
+            tmpregion = map.getRegionOfPoint(mapMaxX, mapMaxY);
+            regionMaxX = tmpregion.getX();
+            regionMaxY = tmpregion.getY();
+
+            long dx, dy;
+
+            // only iterate through those regions which are within the distance
+            for(i = regionMinX; i <= regionMaxX; ++i){
+                for(j = regionMinY; j <= regionMaxY; ++j){
+                    nodes = Regions[i][j].getNodes();
+                    for(k = 0; k < nodes.length; ++k){
+                        tmpNode = nodes[k];
+                        if(tmpNode.getX() >= mapMinX && tmpNode.getX() <= mapMaxX && tmpNode.getY() >= mapMinY && tmpNode.getY() <= mapMaxY){	// precheck with a recangular bounding box should sort out most cases
+                            dx = tmpNode.getX() - x;
+                            dy = tmpNode.getY() - y;
+                            tmpDistance = dx * dx + dy * dy;
+                            if(tmpDistance < maxDistanceSquared && tmpDistance < bestDistance){
+                                bestDistance = tmpDistance;
+                                bestNode = tmpNode;
+                            }
+                        }
+                    }
+                }
+            }
+            distance[0] = bestDistance;
+            return bestNode;
+        } else return null;
+    }
+
 
     /**
      * Calculates the point ON a street which is nearest to a given point (for snapping or such things).
